@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         exit;
     }
 
-    $upload_dir = 'c:/xampp/htdocs/schoolerp/uploads/teachers/';
+    $upload_dir = ROOT_PATH . 'uploads/teachers/';
     if (!is_dir($upload_dir)) {
         @mkdir($upload_dir, 0777, true);
     }
@@ -54,8 +54,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $file_path = 'uploads/teachers/' . $new_name;
 
                 // Delete old file if exists
-                if ($teacher[$doc_type] && file_exists('c:/xampp/htdocs/schoolerp/' . $teacher[$doc_type])) {
-                    @unlink('c:/xampp/htdocs/schoolerp/' . $teacher[$doc_type]);
+                if ($teacher[$doc_type] && file_exists(ROOT_PATH . $teacher[$doc_type])) {
+                    @unlink(ROOT_PATH . $teacher[$doc_type]);
                 }
 
                 // Update DB

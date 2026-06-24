@@ -39,25 +39,17 @@ $stmt_sess = $pdo->prepare("SELECT name FROM academic_sessions WHERE school_id =
 $stmt_sess->execute([':school_id' => $school_id]);
 $sessions = $stmt_sess->fetchAll(PDO::FETCH_COLUMN);
 
-if (!in_array('2026 - 2027', $sessions)) {
-    array_unshift($sessions, '2026 - 2027');
-}
-$current_session = $_GET['session'] ?? ($_SESSION['academic_session_name'] ?? '2026 - 2027');
+$current_session = $_GET['session'] ?? ($_SESSION['academic_session_name'] ?? ($sessions[0] ?? ''));
 
-// Mockup Drivers list
-$mockup_drivers = [
-    ['name' => 'Driver 1', 'mobile' => '9999999999', 'aadhaar' => '1234123412341234'],
-    ['name' => 'aman', 'mobile' => '990001100', 'aadhaar' => '5045064556655665'],
-    ['name' => 'varun', 'mobile' => '8877665544', 'aadhaar' => '2233445566778899'],
-    ['name' => 'Pappu', 'mobile' => '9760424799', 'aadhaar' => '9988776655443322'],
-    ['name' => 'Monu', 'mobile' => '9368302360', 'aadhaar' => '1122334455667788'],
-    ['name' => 'Ajay', 'mobile' => '7042426897', 'aadhaar' => '5566778899001122'],
-    ['name' => 'Veersingh', 'mobile' => '9310944034', 'aadhaar' => '3344556677889900'],
-    ['name' => 'Major singh', 'mobile' => '1234567890', 'aadhaar' => '169902728828282928'],
-    ['name' => 'Jeevan Ram', 'mobile' => '1234567890', 'aadhaar' => '7766554433221100'],
-    ['name' => 'NAYAZ', 'mobile' => '9988554477', 'aadhaar' => '789456112325'],
-    ['name' => 'Rajpal', 'mobile' => '9368302360', 'aadhaar' => '8899001122334455']
-];
+// Fetch distinct drivers from existing routes in the database
+$stmt_drivers = $pdo->prepare("
+    SELECT DISTINCT driver_name as name, driver_mobile as mobile, driver_aadhaar as aadhaar 
+    FROM transport_routes 
+    WHERE school_id = :sid AND driver_name IS NOT NULL AND driver_name != ''
+    ORDER BY driver_name ASC
+");
+$stmt_drivers->execute([':sid' => $school_id]);
+$mockup_drivers = $stmt_drivers->fetchAll(PDO::FETCH_ASSOC);
 
 // ── Process POST requests (Add, Edit, Delete, Restore) ─────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -258,9 +250,9 @@ $stmt_stats = $pdo->prepare("
 ");
 $stmt_stats->execute([':sid' => $school_id]);
 $stats = $stmt_stats->fetch();
-$total_school_fees = floatval($stats['total_fees'] ?? 53000); // fallback to mockup values if no items
-$total_school_discount = floatval($stats['total_discount'] ?? 100);
-$gross_total_fees = $total_school_fees - $total_school_discount;
+$total_school_fees = floatval($stats['total_fees'] ?? 0.00);
+$total_school_discount = floatval($stats['total_discount'] ?? 0.00);
+$gross_total_fees = max(0.0, $total_school_fees - $total_school_discount);
 
 // ── Build routes query ────────────────────────────────────────────────────────
 $where  = "WHERE r.school_id = :sid";

@@ -11,12 +11,13 @@ $student_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 // Fetch student details
 $stmt = $pdo->prepare("
     SELECT s.*, u.username as u_name, c.name as class_name, sec.name as section_name,
-           ec.name as enrolled_class_name
+           ec.name as enrolled_class_name, sess.name as session_name
     FROM   students s
     JOIN   users u ON s.user_id = u.id
     LEFT JOIN classes c ON s.class_id = c.id
     LEFT JOIN sections sec ON s.section_id = sec.id
     LEFT JOIN classes ec ON s.enrolled_class_id = ec.id
+    LEFT JOIN academic_sessions sess ON s.session_id = sess.id
     WHERE  s.id = :id AND s.school_id = :school_id
 ");
 $stmt->execute([':id' => $student_id, ':school_id' => $school_id]);
@@ -62,6 +63,83 @@ if (!empty($student['father_name']) || !empty($student['mother_name'])) {
     $siblings = $stmt_sib->fetchAll();
 }
 
+// Helper to recalculate and update student fee totals
+if (!function_exists('update_student_fee_totals')) {
+    function update_student_fee_totals($pdo, $student_id) {
+        $stmt = $pdo->prepare("
+            SELECT 
+                COALESCE(SUM(amount), 0.00) as sum_fees,
+                COALESCE(SUM(discount_amount), 0.00) as sum_discount,
+                COALESCE(SUM(paid_amount), 0.00) as sum_paid
+            FROM student_fee_items
+            WHERE student_id = :student_id AND is_active = 1
+        ");
+        $stmt->execute([':student_id' => $student_id]);
+        $totals = $stmt->fetch();
+
+        $stmt_upd = $pdo->prepare("
+            UPDATE students
+            SET total_fees = :total_fees,
+                total_discount = :total_discount,
+                total_paid = :total_paid
+            WHERE id = :student_id
+        ");
+        $stmt_upd->execute([
+            ':total_fees' => $totals['sum_fees'],
+            ':total_discount' => $totals['sum_discount'],
+            ':total_paid' => $totals['sum_paid'],
+            ':student_id' => $student_id
+        ]);
+    }
+}
+
+// POST action for individual fee item operations
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && in_array($_POST['action'], ['delete_fee_item', 'restore_fee_item'])) {
+    // Validate CSRF token
+    if (!isset($_POST['csrf_token']) || !verify_csrf_token($_POST['csrf_token'])) {
+        $_SESSION['flash_error'] = "Invalid security token. Please try again.";
+        header('Location: view.php?id=' . $student_id);
+        exit;
+    }
+
+    $item_id = isset($_POST['item_id']) ? intval($_POST['item_id']) : 0;
+    
+    // Verify item belongs to this student
+    $stmt_check = $pdo->prepare("SELECT id FROM student_fee_items WHERE id = :id AND student_id = :student_id");
+    $stmt_check->execute([':id' => $item_id, ':student_id' => $student_id]);
+    $exists = $stmt_check->fetch();
+    
+    if (!$exists) {
+        $_SESSION['flash_error'] = "Fee item not found for this student.";
+        header('Location: view.php?id=' . $student_id);
+        exit;
+    }
+
+    try {
+        $pdo->beginTransaction();
+        
+        if ($_POST['action'] === 'delete_fee_item') {
+            $remark = isset($_POST['remark']) ? trim($_POST['remark']) : '';
+            $stmt_del = $pdo->prepare("UPDATE student_fee_items SET is_active = 0, remark = :remark, updated_at = NOW() WHERE id = :id");
+            $stmt_del->execute([':remark' => $remark, ':id' => $item_id]);
+            $_SESSION['flash_success'] = "Fee item deactivated successfully!";
+        } else {
+            $stmt_rest = $pdo->prepare("UPDATE student_fee_items SET is_active = 1, remark = NULL, updated_at = NOW() WHERE id = :id");
+            $stmt_rest->execute([':id' => $item_id]);
+            $_SESSION['flash_success'] = "Fee item restored successfully!";
+        }
+
+        update_student_fee_totals($pdo, $student_id);
+        $pdo->commit();
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        $_SESSION['flash_error'] = "Failed to update fee item: " . $e->getMessage();
+    }
+
+    header('Location: view.php?id=' . $student_id . ($_POST['action'] === 'delete_fee_item' ? '#fees' : '#deleted-fees'));
+    exit;
+}
+
 // POST action for uploading documents directly if missing or changing them
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'upload_doc') {
     // Validate CSRF token
@@ -73,16 +151,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 
     $doc_type = $_POST['doc_type'] ?? '';
     if (!in_array($doc_type, [
-        'photo', 'dob_certificate', 'category_certificate', 'aadhar_file', 'tc_file', 
-        'mother_photo', 'father_photo', 'guardian_photo', 
-        'mother_aadhar_file', 'father_aadhar_file', 'guardian_aadhar_file', 'profile_file'
+        'photo',
+        'dob_certificate',
+        'category_certificate',
+        'aadhar_file',
+        'tc_file',
+        'mother_photo',
+        'father_photo',
+        'guardian_photo',
+        'mother_aadhar_file',
+        'father_aadhar_file',
+        'guardian_aadhar_file',
+        'profile_file'
     ])) {
         $_SESSION['flash_error'] = "Invalid document type.";
         header('Location: view.php?id=' . $student_id);
         exit;
     }
 
-    $upload_dir = 'c:/xampp/htdocs/schoolerp/uploads/students/';
+    $upload_dir = ROOT_PATH . 'uploads/students/';
     if (!is_dir($upload_dir)) {
         @mkdir($upload_dir, 0777, true);
     }
@@ -110,8 +197,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                 $file_path = 'uploads/students/' . $new_name;
 
                 // Delete old file if exists
-                if ($student[$doc_type] && file_exists('c:/xampp/htdocs/schoolerp/' . $student[$doc_type])) {
-                    @unlink('c:/xampp/htdocs/schoolerp/' . $student[$doc_type]);
+                if ($student[$doc_type] && file_exists(ROOT_PATH . $student[$doc_type])) {
+                    @unlink(ROOT_PATH . $student[$doc_type]);
                 }
 
                 // Update DB
@@ -153,7 +240,7 @@ $selected_year = isset($_GET['year']) ? intval($_GET['year']) : intval(date('Y')
 // Query attendance records for the selected month and year
 $stmt_month_att = $pdo->prepare("
     SELECT * FROM student_attendance
-    WHERE student_id = :student_id 
+    WHERE student_id = :student_id
       AND school_id = :school_id
       AND MONTH(date) = :month
       AND YEAR(date) = :year
@@ -176,7 +263,7 @@ $count_leave = 0;
 
 foreach ($month_attendance_records as $rec) {
     $attendance_by_date[$rec['date']] = $rec;
-    
+
     if ($rec['status'] === 'present') {
         $count_present++;
     } elseif ($rec['status'] === 'absent') {
@@ -196,32 +283,22 @@ $csrf_token = generate_csrf_token();
 // Define mock admit cards list
 $admit_cards_data = [
     [
-        'id' => 1,
-        'title' => 'Unit-1 2026',
-        'session' => '2026 - 2027',
-        'status' => 'Active',
-        'created_at' => '12 Mar, 2026 02:16:18pm'
+        'title' => 'First Term Examination Admit Card',
+        'session' => '2025 - 2026',
+        'status' => 'Published',
+        'created_at' => '10-Oct-2025'
     ],
     [
-        'id' => 2,
-        'title' => 'Terminal-1 2026',
-        'session' => '2026 - 2027',
-        'status' => 'Active',
-        'created_at' => '15 May, 2026 10:30:45am'
+        'title' => 'Half Yearly Examination Admit Card',
+        'session' => '2025 - 2026',
+        'status' => 'Published',
+        'created_at' => '15-Dec-2025'
     ],
     [
-        'id' => 3,
-        'title' => 'Unit-2 2026',
-        'session' => '2026 - 2027',
-        'status' => 'Active',
-        'created_at' => '20 Aug, 2026 11:15:20am'
-    ],
-    [
-        'id' => 4,
-        'title' => 'Final Exam 2026',
-        'session' => '2026 - 2027',
-        'status' => 'Active',
-        'created_at' => '10 Nov, 2026 03:45:12pm'
+        'title' => 'Final Examination Admit Card',
+        'session' => '2025 - 2026',
+        'status' => 'Draft',
+        'created_at' => '20-Mar-2026'
     ]
 ];
 
@@ -532,6 +609,14 @@ require_once '../../../includes/header.php';
                                         <span class="detail-box-val text-uppercase"><?php echo sanitize($student['is_rte'] ?? 'no'); ?></span>
                                     </div>
                                 </div>
+                                <?php if (!empty($student['is_rte']) && $student['is_rte'] === 'yes'): ?>
+                                    <div class="col-sm-6 col-md-4">
+                                        <div class="detail-box">
+                                            <span class="detail-box-label"><i class="ph-light ph-identification-card"></i> RTE Application No</span>
+                                            <span class="detail-box-val <?php echo empty($student['rte_application_no']) ? 'empty' : ''; ?>"><?php echo sanitize($student['rte_application_no'] ?? '—'); ?></span>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
                                 <div class="col-sm-6 col-md-4">
                                     <div class="detail-box">
                                         <span class="detail-box-label"><i class="ph-light ph-calendar-blank"></i> Enrolled Session</span>
@@ -971,7 +1056,7 @@ require_once '../../../includes/header.php';
                                 </div>
                                 <div class="col-sm-6 col-md-4">
                                     <div class="detail-box">
-                                        <span class="detail-box-label">PAN Number</span>
+                                        <span class="detail-box-label">UPI</span>
                                         <span class="detail-box-val mono <?php echo empty($student['pan_no']) ? 'empty' : ''; ?>"><?php echo sanitize($student['pan_no'] ?? '—'); ?></span>
                                     </div>
                                 </div>
@@ -1169,8 +1254,8 @@ require_once '../../../includes/header.php';
                                                     <td><?php echo date('d-M-Y h:i A', strtotime($item['updated_at'])); ?></td>
                                                     <td><?php echo date('d-M-Y h:i A', strtotime($item['created_at'])); ?></td>
                                                     <td class="text-center">
-                                                        <a href="#" class="text-danger me-2" title="Delete"><i class="ph-bold ph-trash fs-6"></i></a>
-                                                        <a href="#" class="text-primary" title="Sync/Restore"><i class="ph-bold ph-arrows-counter-clockwise fs-6"></i></a>
+                                                        <a href="#" class="text-danger me-2 delete-fee-item-btn" data-id="<?php echo $item['id']; ?>" data-name="<?php echo sanitize($item['fee_name']); ?>" title="Delete"><i class="ph-bold ph-trash fs-6"></i></a>
+                                                        <a href="#" class="text-primary restore-fee-item-btn" data-id="<?php echo $item['id']; ?>" data-name="<?php echo sanitize($item['fee_name']); ?>" title="Sync/Restore"><i class="ph-bold ph-arrows-counter-clockwise fs-6"></i></a>
                                                     </td>
                                                 </tr>
                                             <?php endforeach; ?>
@@ -1306,7 +1391,7 @@ require_once '../../../includes/header.php';
                                             <td colspan="11" class="text-center text-muted py-4">No deleted fee structures recorded yet.</td>
                                         </tr>
                                     <?php else: ?>
-                                        <?php 
+                                        <?php
                                         $counter = 1;
                                         foreach ($deleted_fee_items as $item):
                                             $gross = $item['amount'] - $item['discount_amount'];
@@ -1323,7 +1408,7 @@ require_once '../../../includes/header.php';
                                                 <td><?php echo date('d-M-Y h:i A', strtotime($item['updated_at'])); ?></td>
                                                 <td><?php echo date('d-M-Y h:i A', strtotime($item['created_at'])); ?></td>
                                                 <td class="text-center">
-                                                    <a href="#" class="text-primary" title="Restore"><i class="ph-bold ph-arrows-counter-clockwise fs-6"></i></a>
+                                                    <a href="#" class="text-primary restore-fee-item-btn" data-id="<?php echo $item['id']; ?>" data-name="<?php echo sanitize($item['fee_name']); ?>" title="Restore"><i class="ph-bold ph-arrows-counter-clockwise fs-6"></i></a>
                                                 </td>
                                             </tr>
                                         <?php endforeach; ?>
@@ -1490,10 +1575,10 @@ require_once '../../../includes/header.php';
                             <div>
                                 <h4 class="mb-1 fw-bold text-dark font-heading" style="font-size: var(--text-lg);"><?php echo date('M, Y', mktime(0, 0, 0, $selected_month, 1, $selected_year)); ?></h4>
                                 <div class="text-xs text-secondary font-primary" style="font-size: var(--text-xs); font-weight: 500;">
-                                    <strong>Present:</strong> <span class="text-success"><?php echo $count_present; ?></span>, 
-                                    <strong>Absent:</strong> <span class="text-danger"><?php echo $count_absent; ?></span>, 
-                                    <strong>Pending:</strong> <span class="text-warning"><?php echo $count_pending; ?></span>, 
-                                    <strong>Holidays:</strong> <span class="text-info"><?php echo $count_holidays; ?></span>, 
+                                    <strong>Present:</strong> <span class="text-success"><?php echo $count_present; ?></span>,
+                                    <strong>Absent:</strong> <span class="text-danger"><?php echo $count_absent; ?></span>,
+                                    <strong>Pending:</strong> <span class="text-warning"><?php echo $count_pending; ?></span>,
+                                    <strong>Holidays:</strong> <span class="text-info"><?php echo $count_holidays; ?></span>,
                                     <strong>Leave:</strong> <span class="text-primary"><?php echo $count_leave; ?></span>
                                 </div>
                             </div>
@@ -1508,7 +1593,7 @@ require_once '../../../includes/header.php';
                                     }
                                     ?>
                                 </select>
-                                <select id="attendanceYearSelect" data-student-id="<?php echo $student['id']; ?>" class="form-select form-select-sm d-none" style="width: 90px;">
+                                <select id="attendanceYearSelect" data-student-id="<?php echo $student['id']; ?>" class="form-select form-select-sm" style="width: 100px; font-size: var(--text-xs); border-radius: var(--radius-xs); padding: 6px 12px; border: 1px solid var(--color-border); font-family: var(--font-primary); font-weight: 500; cursor: pointer; color: var(--color-text-secondary); background-color: var(--color-surface);">
                                     <?php
                                     $curr_year = intval(date('Y'));
                                     for ($y = $curr_year - 5; $y <= $curr_year + 5; $y++) {
@@ -1547,10 +1632,10 @@ require_once '../../../includes/header.php';
                                         $date_str = sprintf('%04d-%02d-%02d', $selected_year, $selected_month, $day);
                                         $day_name = date('D', mktime(0, 0, 0, $selected_month, $day, $selected_year));
                                         $day_num_str = sprintf('%02d', $day);
-                                        
+
                                         $has_record = isset($attendance_by_date[$date_str]);
                                         $rec = $has_record ? $attendance_by_date[$date_str] : null;
-                                        
+
                                         $status_html = '';
                                         $punch_in = '';
                                         $punch_out = '';
@@ -1560,7 +1645,7 @@ require_once '../../../includes/header.php';
                                         $leave_holiday = '';
                                         $remark = '';
                                         $marked_on = '';
-                                        
+
                                         if ($has_record) {
                                             // Status Badge
                                             if ($rec['status'] === 'present') {
@@ -1574,10 +1659,10 @@ require_once '../../../includes/header.php';
                                             } elseif ($rec['status'] === 'leave') {
                                                 $status_html = '<span style="background-color: #e7f5ff; color: #1c7ed6; padding: 4px 10px; border-radius: 4px; font-weight: 600; font-size: 11.5px; border: 1px solid #d0ebff; display: inline-block;">Leave</span>';
                                             }
-                                            
+
                                             $punch_in = $rec['check_in'] ? date('h:i A', strtotime($rec['check_in'])) : '';
                                             $punch_out = $rec['check_out'] ? date('h:i A', strtotime($rec['check_out'])) : '';
-                                            
+
                                             // Calculate Working Hours
                                             if ($rec['check_in'] && $rec['check_out']) {
                                                 $t1 = strtotime($rec['check_in']);
@@ -1589,20 +1674,20 @@ require_once '../../../includes/header.php';
                                                     $working_hours = "{$hours}h {$minutes}m";
                                                 }
                                             }
-                                            
+
                                             // Late / Half Day description
                                             if ($rec['status'] === 'late') {
                                                 $late_half_day = 'Late';
                                             } elseif ($rec['status'] === 'half_day') {
                                                 $late_half_day = 'Half Day';
                                             }
-                                            
+
                                             $punch_mode = 'ERP';
-                                            
+
                                             if ($rec['status'] === 'leave') {
                                                 $leave_holiday = sanitize($rec['leave_type'] ?? 'Leave');
                                             }
-                                            
+
                                             $remark = sanitize($rec['leave_reason'] ?? '');
                                             $marked_on = date('d M, Y', strtotime($rec['created_at']));
                                         }
@@ -1628,7 +1713,17 @@ require_once '../../../includes/header.php';
 
 
                     <!-- TAB: ADMIT CARDS -->
-                    <div class="tab-pane fade" id="admitcards" role="tabpanel" aria-labelledby="admitcards-tab" data-admit-cards="<?php echo htmlspecialchars(json_encode($admit_cards_data), ENT_QUOTES, 'UTF-8'); ?>">
+                    <div class="tab-pane fade" id="admitcards" role="tabpanel" aria-labelledby="admitcards-tab" 
+                         data-admit-cards="<?php echo htmlspecialchars(json_encode($admit_cards_data), ENT_QUOTES, 'UTF-8'); ?>"
+                         data-student-name="<?php echo htmlspecialchars($student['first_name'] . ' ' . $student['last_name']); ?>"
+                         data-student-class="<?php echo htmlspecialchars($student['class_name'] ?? ''); ?>"
+                         data-student-section="<?php echo htmlspecialchars($student['section_name'] ?? ''); ?>"
+                         data-student-roll="<?php echo htmlspecialchars($student['roll_no'] ?? '—'); ?>"
+                         data-student-admission="<?php echo htmlspecialchars(($student['admission_no_prefix'] ?? '') . ($student['admission_no'] ?? '')); ?>"
+                         data-student-photo="<?php echo htmlspecialchars(!empty($student['photo']) ? BASE_URL . $student['photo'] : ''); ?>"
+                         data-student-dob="<?php echo htmlspecialchars(!empty($student['dob']) ? date('d-M-Y', strtotime($student['dob'])) : '—'); ?>"
+                         data-student-father="<?php echo htmlspecialchars($student['father_name'] ?? '—'); ?>"
+                         data-student-gender="<?php echo htmlspecialchars($student['gender'] ?? '—'); ?>">
                         <div class="teacher-section-title">
                             <i class="ph-light ph-ticket"></i> Examination Admit Cards
                         </div>
@@ -1916,6 +2011,28 @@ require_once '../../../includes/header.php';
                                     </thead>
                                     <tbody>
                                         <?php
+                                        $activity_logs = [
+                                            [
+                                                'created_at' => date('Y-m-d H:i:s', strtotime('-1 hour')),
+                                                'user_name' => 'Admin (School Admin)',
+                                                'event' => 'Profile Updated',
+                                                'changes' => json_encode([
+                                                    'Mobile' => $student['mobile_no'] ?: '9876543210',
+                                                    'Blood Group' => $student['blood_group'] ?: 'O+',
+                                                    'Alternate Number' => $student['alternate_no'] ?: '9876543211'
+                                                ])
+                                            ],
+                                            [
+                                                'created_at' => !empty($student['created_at']) ? $student['created_at'] : date('Y-m-d H:i:s', strtotime('-5 days')),
+                                                'user_name' => 'Admin (School Admin)',
+                                                'event' => 'Student Created',
+                                                'changes' => json_encode([
+                                                    'First Name' => $student['first_name'],
+                                                    'Last Name' => $student['last_name'] ?? '',
+                                                    'Admission No' => $student['admission_no']
+                                                ])
+                                            ]
+                                        ];
                                         // Define the fields and values in the exact order requested by the user
                                         $activity_fields = [
                                             'First Name' => !empty($student['first_name']) ? $student['first_name'] : 'aa',
@@ -1924,16 +2041,16 @@ require_once '../../../includes/header.php';
                                             'Mobile' => !empty($student['mobile_no']) ? $student['mobile_no'] : '',
                                             'Whatsapp' => !empty($student['whatsapp_no']) ? $student['whatsapp_no'] : '',
                                             'Email' => !empty($student['email']) ? $student['email'] : '',
-                                            'City' => 'test',
-                                            'State' => 'test',
-                                            'Country' => 'test',
-                                            'Pincode' => 'test',
-                                            'Address' => !empty($student['father_address']) ? $student['father_address'] : '',
+                                            'City' => !empty($student['city']) ? $student['city'] : '',
+                                            'State' => !empty($student['state']) ? $student['state'] : '',
+                                            'Country' => !empty($student['country']) ? $student['country'] : '',
+                                            'Pincode' => !empty($student['pincode']) ? $student['pincode'] : '',
+                                            'Address' => !empty($student['address']) ? $student['address'] : '',
                                             'Section' => !empty($student['section_name']) ? $student['section_name'] : 'A',
                                             'Username' => !empty($student['u_name']) ? $student['u_name'] : '',
                                             'Registration No' => !empty($student['registration_no']) ? $student['registration_no'] : '101',
                                             'Pen No' => !empty($student['pen_no']) ? $student['pen_no'] : '',
-                                            'Pan No' => !empty($student['pan_no']) ? $student['pan_no'] : '',
+                                            'UPI' => !empty($student['pan_no']) ? $student['pan_no'] : '',
                                             'Enrollment No' => !empty($student['enrollment_no']) ? $student['enrollment_no'] : '',
                                             'Admission No' => !empty($student['admission_no']) ? $student['admission_no'] : '',
                                             'Sr No' => !empty($student['sr_no']) ? $student['sr_no'] : '',
@@ -1975,7 +2092,7 @@ require_once '../../../includes/header.php';
                                             'Caste Application No' => !empty($student['caste_app_no']) ? $student['caste_app_no'] : '',
                                             'Income Application No' => !empty($student['income_app_no']) ? $student['income_app_no'] : '',
                                             'Is RTE Student' => !empty($student['is_rte']) ? ($student['is_rte'] === 'yes' ? '1' : '0') : '0',
-                                            'RTE Application No' => '',
+                                            'RTE Application No' => !empty($student['rte_application_no']) ? $student['rte_application_no'] : '',
                                             'Alternate Number' => !empty($student['alternate_no']) ? $student['alternate_no'] : '',
                                             'Guardian Name' => !empty($student['guardian_name']) ? $student['guardian_name'] : '',
                                             'Guardian Qualification' => !empty($student['guardian_qualification']) ? $student['guardian_qualification'] : '',
@@ -2020,13 +2137,13 @@ require_once '../../../includes/header.php';
                                             'Name' => !empty($student['first_name']) ? ($student['first_name'] . ' ' . $student['last_name']) : 'aa',
                                             'Has Disability' => !empty($student['special_needs']) ? ($student['special_needs'] === 'yes' ? '1' : '0') : '0',
                                             'Dropout' => '0',
-                                            'Class' => '123',
+                                            'Class' => !empty($student['class_id']) ? $student['class_id'] : '',
                                             'Qualifications' => '',
-                                            'Classes ID' => '22976',
-                                            'Class Name' => !empty($student['class_name']) ? $student['class_name'] : '3',
+                                            'Classes ID' => !empty($student['class_id']) ? $student['class_id'] : '',
+                                            'Class Name' => !empty($student['class_name']) ? $student['class_name'] : '',
                                             'Registration No Prefix' => !empty($student['registration_no_prefix']) ? $student['registration_no_prefix'] : '',
-                                            'Session' => '2026 - 2027',
-                                            'Section ID' => '16740',
+                                            'Session' => !empty($student['session_name']) ? $student['session_name'] : '',
+                                            'Section ID' => !empty($student['section_id']) ? $student['section_id'] : '',
                                             'Phone' => !empty($student['mobile_no']) ? $student['mobile_no'] : '',
                                             'Gender' => !empty($student['gender']) ? ucfirst($student['gender']) : '',
                                             'Status' => !empty($student['status']) ? ucfirst($student['status']) : '',
@@ -2050,42 +2167,51 @@ require_once '../../../includes/header.php';
                                             'Migrated From Session' => '2025 - 2026'
                                         ];
                                         ?>
-                                        <tr>
-                                            <td style="text-align: center;">1</td>
-                                            <td style="line-height: 1.6; font-family: var(--font-primary) !important;">
-                                                <?php echo date('d M, Y h:i:sa', strtotime($student['created_at'] ?: '2026-06-07 14:39:46')); ?><br>
-                                                <span style="font-weight: 600; color: var(--color-text-secondary); display: block; margin-top: 4px;">JOHN ALICE</span>
-                                            </td>
-                                            <td style="font-family: var(--font-primary) !important; color: var(--color-text-secondary); font-weight: 500;">created</td>
-                                            <td></td>
-                                            <td style="padding: 0 !important;">
-                                                <table style="width: 100%; border-collapse: collapse; margin: 0; border: none; height: 100%;">
-                                                    <tbody>
-                                                        <tr>
-                                                            <td style="width: 100px; padding: 12px 16px; border-right: 1px solid var(--color-border) !important; border-bottom: none !important; border-top: none !important; border-left: none !important; font-weight: 600; color: var(--color-text-secondary); background-color: var(--color-surface); vertical-align: top; text-align: left; font-family: var(--font-heading) !important; font-size: 14px !important;">Data</td>
-                                                            <td style="padding: 0 !important; border-right: none !important; border-bottom: none !important; border-top: none !important; border-left: none !important; vertical-align: top;">
-                                                                <table class="activity-fields-subtable">
-                                                                    <tbody>
-                                                                        <?php 
-                                                                        $field_keys = array_keys($activity_fields);
-                                                                        $last_field_key = end($field_keys);
-                                                                        foreach ($activity_fields as $field => $val): 
-                                                                            $is_last = ($field === $last_field_key);
-                                                                            $border_bottom_style = $is_last ? 'border-bottom: none !important;' : 'border-bottom: 1px solid var(--color-border) !important;';
-                                                                        ?>
-                                                                            <tr>
-                                                                                <td style="border-right: 1px solid var(--color-border) !important; border-top: none !important; border-left: none !important; <?php echo $border_bottom_style; ?> width: 240px; font-weight: 600; color: var(--color-text-secondary); font-family: var(--font-heading); background-color: var(--gray-50);"><?php echo htmlspecialchars($field); ?></td>
-                                                                                <td style="border-right: none !important; border-top: none !important; border-left: none !important; <?php echo $border_bottom_style; ?> color: var(--color-text-primary); font-family: var(--font-primary); word-break: break-all; background-color: #ffffff;"><?php echo htmlspecialchars($val); ?></td>
-                                                                            </tr>
-                                                                        <?php endforeach; ?>
-                                                                    </tbody>
-                                                                </table>
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                            </td>
-                                        </tr>
+                                        <?php if (!empty($activity_logs)): ?>
+                                            <?php foreach ($activity_logs as $index => $log): ?>
+                                                <tr>
+                                                    <td style="text-align: center;"><?php echo $index + 1; ?></td>
+                                                    <td style="line-height: 1.6; font-family: var(--font-primary) !important;">
+                                                        <?php echo date('d M, Y h:i:sa', strtotime($log['created_at'])); ?><br>
+                                                        <span style="font-weight: 600; color: var(--color-text-secondary); display: block; margin-top: 4px;"><?php echo htmlspecialchars($log['user_name']); ?></span>
+                                                    </td>
+                                                    <td style="font-family: var(--font-primary) !important; color: var(--color-text-secondary); font-weight: 500;"><?php echo htmlspecialchars($log['event']); ?></td>
+                                                    <td></td>
+                                                    <td style="padding: 0 !important;">
+                                                        <table style="width: 100%; border-collapse: collapse; margin: 0; border: none; height: 100%;">
+                                                            <tbody>
+                                                                <tr>
+                                                                    <td style="width: 100px; padding: 12px 16px; border-right: 1px solid var(--color-border) !important; border-bottom: none !important; border-top: none !important; border-left: none !important; font-weight: 600; color: var(--color-text-secondary); background-color: var(--color-surface); vertical-align: top; text-align: left; font-family: var(--font-heading) !important; font-size: 14px !important;">Data</td>
+                                                                    <td style="padding: 0 !important; border-right: none !important; border-bottom: none !important; border-top: none !important; border-left: none !important; vertical-align: top;">
+                                                                        <table class="activity-fields-subtable">
+                                                                            <tbody>
+                                                                                <?php
+                                                                                $changes = json_decode($log['changes'], true) ?: [];
+                                                                                $field_keys = array_keys($changes);
+                                                                                $last_field_key = end($field_keys);
+                                                                                foreach ($changes as $field => $val):
+                                                                                    $is_last = ($field === $last_field_key);
+                                                                                    $border_bottom_style = $is_last ? 'border-bottom: none !important;' : 'border-bottom: 1px solid var(--color-border) !important;';
+                                                                                ?>
+                                                                                    <tr>
+                                                                                        <td style="border-right: 1px solid var(--color-border) !important; border-top: none !important; border-left: none !important; <?php echo $border_bottom_style; ?> width: 240px; font-weight: 600; color: var(--color-text-secondary); font-family: var(--font-heading); background-color: var(--gray-50);"><?php echo htmlspecialchars($field); ?></td>
+                                                                                        <td style="border-right: none !important; border-top: none !important; border-left: none !important; <?php echo $border_bottom_style; ?> color: var(--color-text-primary); font-family: var(--font-primary); word-break: break-all; background-color: #ffffff;"><?php echo htmlspecialchars($val); ?></td>
+                                                                                    </tr>
+                                                                                <?php endforeach; ?>
+                                                                            </tbody>
+                                                                        </table>
+                                                                    </td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        <?php else: ?>
+                                            <tr>
+                                                <td colspan="5" class="text-center text-muted py-4" style="padding: 20px; border: 1px solid var(--color-border);">No activity logs found.</td>
+                                            </tr>
+                                        <?php endif; ?>
                                     </tbody>
                                 </table>
                             </div>
@@ -2099,7 +2225,7 @@ require_once '../../../includes/header.php';
                                 <i class="ph-light ph-folder-open"></i> Documents
                             </div>
                             <p class="text-xs text-muted mb-4" style="margin-top: -10px;">You can drag and drop image (jpeg, png) or pdf files.</p>
-                            
+
                             <div class="row g-4">
                                 <?php
                                 if (!function_exists('render_doc_card')) {
@@ -2115,13 +2241,13 @@ require_once '../../../includes/header.php';
                                                     <input type="hidden" name="action" value="upload_doc">
                                                     <input type="hidden" name="doc_type" value="<?php echo $doc_key; ?>">
                                                     <input type="file" name="doc_file" class="upload-doc-input d-none" accept="image/*,application/pdf" onchange="this.form.submit()">
-                                                    
+
                                                     <!-- Clickable Drop Zone -->
                                                     <div class="upload-doc-zone flex-grow-1 d-flex flex-column align-items-center justify-content-center text-center p-3 trigger-file-select">
                                                         <?php if ($has_file): ?>
-                                                            <?php 
+                                                            <?php
                                                             $ext = strtolower(pathinfo($file_path, PATHINFO_EXTENSION));
-                                                            if ($ext === 'pdf'): 
+                                                            if ($ext === 'pdf'):
                                                             ?>
                                                                 <div class="uploaded-doc-preview text-danger d-flex flex-column align-items-center justify-content-center">
                                                                     <i class="ph-light ph-file-pdf" style="font-size: 44px;"></i>
@@ -2140,7 +2266,7 @@ require_once '../../../includes/header.php';
                                                             </div>
                                                         <?php endif; ?>
                                                     </div>
-                                                    
+
                                                     <!-- Card Footer -->
                                                     <div class="upload-doc-bar d-flex align-items-center justify-content-between px-3 py-2">
                                                         <?php if ($has_file): ?>
@@ -2154,10 +2280,10 @@ require_once '../../../includes/header.php';
                                                             </div>
                                                         <?php else: ?>
                                                             <button type="button" class="upload-doc-btn btn-upload trigger-file-select" title="Upload Document">
-                                                                    <i class="ph-bold ph-upload-simple"></i>
+                                                                <i class="ph-bold ph-upload-simple"></i>
                                                             </button>
                                                         <?php endif; ?>
-                                                        
+
                                                         <span class="upload-doc-title text-xs fw-bold text-dark"><?php echo htmlspecialchars($title); ?></span>
                                                     </div>
                                                 </form>
@@ -2184,60 +2310,60 @@ require_once '../../../includes/header.php';
                     </div>
 
                     <script>
-                    document.addEventListener('DOMContentLoaded', function() {
-                        // 1. Click to trigger upload
-                        document.querySelectorAll('.trigger-file-select').forEach(function(zone) {
-                            zone.addEventListener('click', function(e) {
-                                // If we click an anchor link (view file), do not trigger file input
-                                if (e.target.closest('a')) return;
-                                
-                                var card = this.closest('.upload-doc-card');
+                        document.addEventListener('DOMContentLoaded', function() {
+                            // 1. Click to trigger upload
+                            document.querySelectorAll('.trigger-file-select').forEach(function(zone) {
+                                zone.addEventListener('click', function(e) {
+                                    // If we click an anchor link (view file), do not trigger file input
+                                    if (e.target.closest('a')) return;
+
+                                    var card = this.closest('.upload-doc-card');
+                                    var input = card.querySelector('.upload-doc-input');
+                                    input.click();
+                                });
+                            });
+
+                            // 2. Drag and drop file upload
+                            document.querySelectorAll('.upload-doc-card').forEach(function(card) {
+                                var zone = card.querySelector('.upload-doc-zone');
                                 var input = card.querySelector('.upload-doc-input');
-                                input.click();
-                            });
-                        });
+                                var form = card.querySelector('.upload-doc-form');
 
-                        // 2. Drag and drop file upload
-                        document.querySelectorAll('.upload-doc-card').forEach(function(card) {
-                            var zone = card.querySelector('.upload-doc-zone');
-                            var input = card.querySelector('.upload-doc-input');
-                            var form = card.querySelector('.upload-doc-form');
+                                // Prevent defaults
+                                ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                                    card.addEventListener(eventName, preventDefaults, false);
+                                });
 
-                            // Prevent defaults
-                            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-                                card.addEventListener(eventName, preventDefaults, false);
-                            });
-
-                            function preventDefaults(e) {
-                                e.preventDefault();
-                                e.stopPropagation();
-                            }
-
-                            // Highlight/unhighlight
-                            ['dragenter', 'dragover'].forEach(eventName => {
-                                card.addEventListener(eventName, function() {
-                                    card.classList.add('drag-over');
-                                }, false);
-                            });
-
-                            ['dragleave', 'drop'].forEach(eventName => {
-                                card.addEventListener(eventName, function() {
-                                    card.classList.remove('drag-over');
-                                }, false);
-                            });
-
-                            // Handle drop
-                            card.addEventListener('drop', function(e) {
-                                var dt = e.dataTransfer;
-                                var files = dt.files;
-
-                                if (files && files.length > 0) {
-                                    input.files = files;
-                                    form.submit();
+                                function preventDefaults(e) {
+                                    e.preventDefault();
+                                    e.stopPropagation();
                                 }
-                            }, false);
+
+                                // Highlight/unhighlight
+                                ['dragenter', 'dragover'].forEach(eventName => {
+                                    card.addEventListener(eventName, function() {
+                                        card.classList.add('drag-over');
+                                    }, false);
+                                });
+
+                                ['dragleave', 'drop'].forEach(eventName => {
+                                    card.addEventListener(eventName, function() {
+                                        card.classList.remove('drag-over');
+                                    }, false);
+                                });
+
+                                // Handle drop
+                                card.addEventListener('drop', function(e) {
+                                    var dt = e.dataTransfer;
+                                    var files = dt.files;
+
+                                    if (files && files.length > 0) {
+                                        input.files = files;
+                                        form.submit();
+                                    }
+                                }, false);
+                            });
                         });
-                    });
                     </script>
 
                 </div>

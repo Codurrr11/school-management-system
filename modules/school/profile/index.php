@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
 
-            $upload_dir = '../../../uploads/profile/';
+            $upload_dir = ROOT_PATH . 'uploads/profile/';
             if (!is_dir($upload_dir)) {
                 mkdir($upload_dir, 0777, true);
             }

@@ -279,7 +279,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Handle File Uploads
-        $upload_dir = 'c:/xampp/htdocs/schoolerp/uploads/teachers/';
+        $upload_dir = ROOT_PATH . 'uploads/teachers/';
         if (!is_dir($upload_dir)) {
             @mkdir($upload_dir, 0777, true);
         }
@@ -515,7 +515,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Handle File Uploads
-        $upload_dir = 'c:/xampp/htdocs/schoolerp/uploads/teachers/';
+        $upload_dir = ROOT_PATH . 'uploads/teachers/';
         if (!is_dir($upload_dir)) {
             @mkdir($upload_dir, 0777, true);
         }
@@ -752,14 +752,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->commit();
 
             // Delete old files since new ones were successfully committed and updated
-            if ($new_photo_uploaded && $teacher['photo'] && file_exists('c:/xampp/htdocs/schoolerp/' . $teacher['photo'])) {
-                @unlink('c:/xampp/htdocs/schoolerp/' . $teacher['photo']);
+            if ($new_photo_uploaded && $teacher['photo'] && file_exists(ROOT_PATH . $teacher['photo'])) {
+                @unlink(ROOT_PATH . $teacher['photo']);
             }
-            if ($new_aadhar_uploaded && $teacher['aadhar_file'] && file_exists('c:/xampp/htdocs/schoolerp/' . $teacher['aadhar_file'])) {
-                @unlink('c:/xampp/htdocs/schoolerp/' . $teacher['aadhar_file']);
+            if ($new_aadhar_uploaded && $teacher['aadhar_file'] && file_exists(ROOT_PATH . $teacher['aadhar_file'])) {
+                @unlink(ROOT_PATH . $teacher['aadhar_file']);
             }
-            if ($new_signature_uploaded && $teacher['signature_file'] && file_exists('c:/xampp/htdocs/schoolerp/' . $teacher['signature_file'])) {
-                @unlink('c:/xampp/htdocs/schoolerp/' . $teacher['signature_file']);
+            if ($new_signature_uploaded && $teacher['signature_file'] && file_exists(ROOT_PATH . $teacher['signature_file'])) {
+                @unlink(ROOT_PATH . $teacher['signature_file']);
             }
 
             $_SESSION['flash_success'] = "Teacher profile updated successfully!";

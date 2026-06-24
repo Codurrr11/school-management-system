@@ -140,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         
         $photo_path = $existing['photo'];
-        $upload_dir = 'c:/xampp/htdocs/schoolerp/uploads/leads/';
+        $upload_dir = ROOT_PATH . 'uploads/leads/';
         if (isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
             if (!is_dir($upload_dir)) {
                 @mkdir($upload_dir, 0777, true);

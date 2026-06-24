@@ -449,7 +449,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             exit;
         }
         
-        $upload_dir = dirname(dirname(dirname(__DIR__))) . '/uploads/fees_screenshots/';
+        $upload_dir = ROOT_PATH . 'uploads/fees_screenshots/';
         if (!is_dir($upload_dir)) {
             mkdir($upload_dir, 0777, true);
         }

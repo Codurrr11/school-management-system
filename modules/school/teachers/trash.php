@@ -61,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $files = [$teacher['photo'], $teacher['aadhar_file'], $teacher['signature_file']];
                 foreach ($files as $f) {
                     if (!empty($f)) {
-                        $full = 'c:/xampp/htdocs/schoolerp/' . $f;
+                        $full = ROOT_PATH . $f;
                         if (file_exists($full)) @unlink($full);
                     }
                 }
@@ -127,7 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $user_ids[] = $t['user_id'];
                     foreach ([$t['photo'], $t['aadhar_file'], $t['signature_file']] as $f) {
                         if (!empty($f)) {
-                            $full = 'c:/xampp/htdocs/schoolerp/' . $f;
+                            $full = ROOT_PATH . $f;
                             if (file_exists($full)) @unlink($full);
                         }
                     }

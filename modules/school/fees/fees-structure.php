@@ -10,11 +10,7 @@ $stmt_sess = $pdo->prepare("SELECT name FROM academic_sessions WHERE school_id =
 $stmt_sess->execute([':school_id' => $school_id]);
 $sessions = $stmt_sess->fetchAll(PDO::FETCH_COLUMN);
 
-// Ensure '2026 - 2027' is in the session list if not present to match the mockup
-if (!in_array('2026 - 2027', $sessions)) {
-    array_unshift($sessions, '2026 - 2027');
-}
-$current_session = $_GET['session'] ?? '2026 - 2027';
+$current_session = $_GET['session'] ?? ($_SESSION['academic_session_name'] ?? ($sessions[0] ?? ''));
 
 // 2. Fetch all classes for checkbox list
 $stmt_cl = $pdo->prepare("SELECT * FROM classes WHERE school_id = :school_id ORDER BY id ASC");
@@ -323,89 +319,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
 }
 
 // 4. Fetch overall summary banner stats
-if ($current_session === '2026 - 2027') {
-    $total_school_fees = 3291803;
-    $total_school_discount = 30000;
-    $gross_total_fees = 3261803;
-} else {
-    $stmt_sum = $pdo->prepare("
-        SELECT SUM(CASE WHEN sfi.is_active = 1 THEN sfi.amount ELSE 0 END) as total_school_fees,
-               SUM(CASE WHEN sfi.is_active = 1 THEN sfi.discount_amount ELSE 0 END) as total_school_discount
-        FROM student_fee_items sfi
-        JOIN students s ON sfi.student_id = s.id
-        WHERE s.school_id = :school_id AND s.deleted_at IS NULL
-    ");
-    $stmt_sum->execute([':school_id' => $school_id]);
-    $summary = $stmt_sum->fetch();
-    $total_school_fees = (float)($summary['total_school_fees'] ?? 0);
-    $total_school_discount = (float)($summary['total_school_discount'] ?? 0);
-    $gross_total_fees = max(0.0, $total_school_fees - $total_school_discount);
-}
+$stmt_sum = $pdo->prepare("
+    SELECT SUM(CASE WHEN sfi.is_active = 1 THEN sfi.amount ELSE 0 END) as total_school_fees,
+           SUM(CASE WHEN sfi.is_active = 1 THEN sfi.discount_amount ELSE 0 END) as total_school_discount
+    FROM student_fee_items sfi
+    JOIN students s ON sfi.student_id = s.id
+    WHERE s.school_id = :school_id AND s.deleted_at IS NULL
+");
+$stmt_sum->execute([':school_id' => $school_id]);
+$summary = $stmt_sum->fetch();
+$total_school_fees = (float)($summary['total_school_fees'] ?? 0);
+$total_school_discount = (float)($summary['total_school_discount'] ?? 0);
+$gross_total_fees = max(0.0, $total_school_fees - $total_school_discount);
 
 // 5. Prepare structures array
 $structures = [];
-if ($current_session === '2026 - 2027') {
-    $structures[] = [
-        'id' => 27,
-        'fee_name' => 'Academic and Administrative Fees',
-        'fee_type' => 'monthly',
-        'apply_to' => 'all',
-        'linked_to' => '',
-        'total_students_fees' => 901000,
-        'received_fees' => 29000,
-        'linked_count' => 20,
-        'inactive_count' => 0,
-        'sub_day_date' => 5,
-        'fine_type' => 'monthly',
-        'fine_amount' => 50,
-        'updated_at' => '2026-06-16 15:07:25',
-        'created_at' => '2026-06-09 19:44:35',
-        'classes' => [
-            ['class' => '1', 'amount' => 17000],
-            ['class' => '2', 'amount' => 17000],
-            ['class' => '3', 'amount' => 17000],
-            ['class' => '4', 'amount' => 17000],
-        ]
-    ];
-    $structures[] = [
-        'id' => 26,
-        'fee_name' => '1210 2',
-        'fee_type' => 'monthly',
-        'apply_to' => 'all',
-        'linked_to' => '',
-        'total_students_fees' => 478800,
-        'received_fees' => 3600,
-        'linked_count' => 36,
-        'inactive_count' => 0,
-        'sub_day_date' => 27,
-        'fine_type' => 'monthly',
-        'fine_amount' => 120,
-        'updated_at' => '2026-06-16 15:07:42',
-        'created_at' => '2026-05-21 13:56:15',
-        'classes' => [
-            ['class' => '1', 'amount' => 1200],
-            ['class' => '2', 'amount' => 1200],
-            ['class' => '3', 'amount' => 1200],
-            ['class' => '4', 'amount' => 1200],
-            ['class' => 'N.C', 'amount' => 1200],
-            ['class' => '5', 'amount' => 1200],
-            ['class' => 'Nursery', 'amount' => 1200],
-            ['class' => 'LKG', 'amount' => 1200],
-            ['class' => 'UKG', 'amount' => 1200],
-            ['class' => 'Class 8', 'amount' => 1200],
-            ['class' => '2', 'amount' => 1200],
-            ['class' => '11', 'amount' => 1200],
-            ['class' => '9', 'amount' => 1200],
-            ['class' => 'XIB', 'amount' => 1200],
-            ['class' => 'GOLDEN PP3', 'amount' => 1200],
-            ['class' => 'GOLDEN ACADEMY CLASS 5', 'amount' => 1200],
-            ['class' => 'LKG', 'amount' => 1200],
-            ['class' => 'NURSERY', 'amount' => 1200],
-            ['class' => 'CIA', 'amount' => 1200],
-            ['class' => 'Class 3', 'amount' => 1200],
-        ]
-    ];
-}
 
 // 6. Fetch distinct fee structures from DB
 $stmt_str = $pdo->prepare("

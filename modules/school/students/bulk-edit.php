@@ -73,7 +73,7 @@ $fields = [
     'special_needs' => ['label' => 'Special Needs?', 'type' => 'yes_no', 'width' => 'form-control-table-xs'],
     'is_bpl' => ['label' => 'Is BPL?', 'type' => 'yes_no', 'width' => 'form-control-table-xs'],
     'house_block' => ['label' => 'House Block', 'type' => 'text', 'width' => 'form-control-table-sm'],
-    
+
     // Parents
     'father_name' => ['label' => 'Father Name', 'type' => 'text', 'width' => 'form-control-table-md'],
     'father_qualification' => ['label' => 'Father Qual.', 'type' => 'text', 'width' => 'form-control-table-sm'],
@@ -84,7 +84,7 @@ $fields = [
     'father_email' => ['label' => 'Father Email', 'type' => 'text', 'width' => 'form-control-table-md'],
     'father_mobile' => ['label' => 'Father Mobile', 'type' => 'text', 'width' => 'form-control-table-sm'],
     'father_aadhar' => ['label' => 'Father Aadhar', 'type' => 'text', 'width' => 'form-control-table-sm'],
-    
+
     'mother_name' => ['label' => 'Mother Name', 'type' => 'text', 'width' => 'form-control-table-md'],
     'mother_qualification' => ['label' => 'Mother Qual.', 'type' => 'text', 'width' => 'form-control-table-sm'],
     'mother_address' => ['label' => 'Mother Address', 'type' => 'text', 'width' => 'form-control-table-lg'],
@@ -94,7 +94,7 @@ $fields = [
     'mother_email' => ['label' => 'Mother Email', 'type' => 'text', 'width' => 'form-control-table-md'],
     'mother_mobile' => ['label' => 'Mother Mobile', 'type' => 'text', 'width' => 'form-control-table-sm'],
     'mother_aadhar' => ['label' => 'Mother Aadhar', 'type' => 'text', 'width' => 'form-control-table-sm'],
-    
+
     'guardian_name' => ['label' => 'Guardian Name', 'type' => 'text', 'width' => 'form-control-table-md'],
     'guardian_qualification' => ['label' => 'Guardian Qual.', 'type' => 'text', 'width' => 'form-control-table-sm'],
     'guardian_address' => ['label' => 'Guardian Address', 'type' => 'text', 'width' => 'form-control-table-lg'],
@@ -104,7 +104,7 @@ $fields = [
     'guardian_email' => ['label' => 'Guardian Email', 'type' => 'text', 'width' => 'form-control-table-md'],
     'guardian_mobile' => ['label' => 'Guardian Mobile', 'type' => 'text', 'width' => 'form-control-table-sm'],
     'guardian_aadhar' => ['label' => 'Guardian Aadhar', 'type' => 'text', 'width' => 'form-control-table-sm'],
-    
+
     // Contact
     'mobile_no' => ['label' => 'Mobile No.', 'type' => 'text', 'width' => 'form-control-table-sm'],
     'alternate_no' => ['label' => 'Alt. Mobile', 'type' => 'text', 'width' => 'form-control-table-sm'],
@@ -117,14 +117,14 @@ $fields = [
     'dob' => ['label' => 'DOB', 'type' => 'date', 'width' => 'form-control-table-md'],
     'place_of_birth' => ['label' => 'Birth Place', 'type' => 'text', 'width' => 'form-control-table-sm'],
     'dob_certificate_no' => ['label' => 'DOB Cert. No.', 'type' => 'text', 'width' => 'form-control-table-sm'],
-    
+
     // Finance
     'total_fees' => ['label' => 'Total Fees', 'type' => 'number', 'width' => 'form-control-table-sm'],
     'total_paid' => ['label' => 'Total Paid', 'type' => 'number', 'width' => 'form-control-table-sm'],
     'total_discount' => ['label' => 'Total Discount', 'type' => 'number', 'width' => 'form-control-table-sm'],
     'fine_amount' => ['label' => 'Fine Amount', 'type' => 'number', 'width' => 'form-control-table-sm'],
     'biometric_code' => ['label' => 'Biometric Code', 'type' => 'text', 'width' => 'form-control-table-sm'],
-    
+
     // Docs & Religion
     'income_app_no' => ['label' => 'Income App No.', 'type' => 'text', 'width' => 'form-control-table-sm'],
     'caste_app_no' => ['label' => 'Caste App No.', 'type' => 'text', 'width' => 'form-control-table-sm'],
@@ -134,18 +134,18 @@ $fields = [
     'category' => ['label' => 'Category', 'type' => 'category', 'width' => 'form-control-table-sm'],
     'caste' => ['label' => 'Caste', 'type' => 'text', 'width' => 'form-control-table-sm'],
     'aadhar_no' => ['label' => 'Aadhar No.', 'type' => 'text', 'width' => 'form-control-table-sm'],
-    
+
     // TC
     'tc_no' => ['label' => 'TC No.', 'type' => 'text', 'width' => 'form-control-table-sm'],
     'tc_issue_date' => ['label' => 'TC Issue Date', 'type' => 'date', 'width' => 'form-control-table-md'],
-    
+
     // Scholarship & Govt
     'scholarship_id' => ['label' => 'Scholarship ID', 'type' => 'text', 'width' => 'form-control-table-sm'],
     'scholarship_password' => ['label' => 'Scholarship Pwd', 'type' => 'text', 'width' => 'form-control-table-sm'],
     'govt_student_id' => ['label' => 'Govt Student ID', 'type' => 'text', 'width' => 'form-control-table-sm'],
     'govt_family_id' => ['label' => 'Govt Family ID', 'type' => 'text', 'width' => 'form-control-table-sm'],
     'samagra_id' => ['label' => 'Samagra ID', 'type' => 'text', 'width' => 'form-control-table-sm'],
-    
+
     // Bank
     'bank_name' => ['label' => 'Bank Name', 'type' => 'text', 'width' => 'form-control-table-sm'],
     'bank_branch' => ['label' => 'Bank Branch', 'type' => 'text', 'width' => 'form-control-table-sm'],
@@ -325,10 +325,10 @@ require_once '../../../includes/header.php';
 
 <!-- Meta tag for JS parameter passing without inline scripting -->
 <div id="student-page-data"
-     data-csrf-token="<?php echo $csrf_token; ?>"
-     data-base-url="<?php echo BASE_URL; ?>"
-     data-flash-success="<?php echo htmlspecialchars($flash_success ?? ''); ?>"
-     data-flash-error="<?php echo htmlspecialchars($flash_error ?? ''); ?>">
+    data-csrf-token="<?php echo $csrf_token; ?>"
+    data-base-url="<?php echo BASE_URL; ?>"
+    data-flash-success="<?php echo htmlspecialchars($flash_success ?? ''); ?>"
+    data-flash-error="<?php echo htmlspecialchars($flash_error ?? ''); ?>">
 </div>
 
 <div class="row g-4">
@@ -422,31 +422,31 @@ require_once '../../../includes/header.php';
                                     ?>
                                         <tr>
                                             <td><span class="cell-counter"><?php echo $idx++; ?></span></td>
-                                            <?php foreach ($fields as $field_name => $field_meta): 
+                                            <?php foreach ($fields as $field_name => $field_meta):
                                                 $input_width = $field_meta['width'] ?? 'form-control-table-md';
                                                 $current_val = $s[$field_name] ?? '';
                                             ?>
                                                 <td>
                                                     <?php if ($field_meta['type'] === 'text'): ?>
-                                                        <input type="text" 
-                                                               name="students[<?php echo $s['id']; ?>][<?php echo $field_name; ?>]" 
-                                                               value="<?php echo sanitize($current_val); ?>" 
-                                                               class="form-control-table <?php echo $input_width; ?>" 
-                                                               <?php echo !empty($field_meta['required']) ? 'required' : ''; ?>>
-                                                               
+                                                        <input type="text"
+                                                            name="students[<?php echo $s['id']; ?>][<?php echo $field_name; ?>]"
+                                                            value="<?php echo sanitize($current_val); ?>"
+                                                            class="form-control-table <?php echo $input_width; ?>"
+                                                            <?php echo !empty($field_meta['required']) ? 'required' : ''; ?>>
+
                                                     <?php elseif ($field_meta['type'] === 'number'): ?>
-                                                        <input type="number" 
-                                                               step="0.01" 
-                                                               name="students[<?php echo $s['id']; ?>][<?php echo $field_name; ?>]" 
-                                                               value="<?php echo sanitize($current_val); ?>" 
-                                                               class="form-control-table <?php echo $input_width; ?>">
-                                                               
+                                                        <input type="number"
+                                                            step="0.01"
+                                                            name="students[<?php echo $s['id']; ?>][<?php echo $field_name; ?>]"
+                                                            value="<?php echo sanitize($current_val); ?>"
+                                                            class="form-control-table <?php echo $input_width; ?>">
+
                                                     <?php elseif ($field_meta['type'] === 'date'): ?>
-                                                        <input type="date" 
-                                                               name="students[<?php echo $s['id']; ?>][<?php echo $field_name; ?>]" 
-                                                               value="<?php echo sanitize($current_val); ?>" 
-                                                               class="form-control-table <?php echo $input_width; ?>">
-                                                               
+                                                        <input type="date"
+                                                            name="students[<?php echo $s['id']; ?>][<?php echo $field_name; ?>]"
+                                                            value="<?php echo sanitize($current_val); ?>"
+                                                            class="form-control-table <?php echo $input_width; ?>">
+
                                                     <?php elseif ($field_meta['type'] === 'session'): ?>
                                                         <select name="students[<?php echo $s['id']; ?>][<?php echo $field_name; ?>]" class="form-control-table <?php echo $input_width; ?>">
                                                             <option value="">-- Session --</option>
@@ -456,7 +456,7 @@ require_once '../../../includes/header.php';
                                                                 </option>
                                                             <?php endforeach; ?>
                                                         </select>
-                                                        
+
                                                     <?php elseif ($field_meta['type'] === 'class' || $field_meta['type'] === 'enrolled_class'): ?>
                                                         <select name="students[<?php echo $s['id']; ?>][<?php echo $field_name; ?>]" class="form-control-table <?php echo $input_width; ?>">
                                                             <option value="">-- Class --</option>
@@ -466,7 +466,7 @@ require_once '../../../includes/header.php';
                                                                 </option>
                                                             <?php endforeach; ?>
                                                         </select>
-                                                        
+
                                                     <?php elseif ($field_meta['type'] === 'section'): ?>
                                                         <select name="students[<?php echo $s['id']; ?>][<?php echo $field_name; ?>]" class="form-control-table <?php echo $input_width; ?>">
                                                             <option value="">-- Section --</option>
@@ -476,7 +476,7 @@ require_once '../../../includes/header.php';
                                                                 </option>
                                                             <?php endforeach; ?>
                                                         </select>
-                                                        
+
                                                     <?php elseif ($field_meta['type'] === 'status'): ?>
                                                         <select name="students[<?php echo $s['id']; ?>][<?php echo $field_name; ?>]" class="form-control-table <?php echo $input_width; ?>" required>
                                                             <option value="active" <?php echo ($current_val === 'active') ? 'selected' : ''; ?>>Active</option>
@@ -485,13 +485,13 @@ require_once '../../../includes/header.php';
                                                             <option value="dropped" <?php echo ($current_val === 'dropped') ? 'selected' : ''; ?>>Dropped</option>
                                                             <option value="suspended" <?php echo ($current_val === 'suspended') ? 'selected' : ''; ?>>Suspended</option>
                                                         </select>
-                                                        
+
                                                     <?php elseif ($field_meta['type'] === 'yes_no'): ?>
                                                         <select name="students[<?php echo $s['id']; ?>][<?php echo $field_name; ?>]" class="form-control-table <?php echo $input_width; ?>">
                                                             <option value="no" <?php echo ($current_val === 'no') ? 'selected' : ''; ?>>No</option>
                                                             <option value="yes" <?php echo ($current_val === 'yes') ? 'selected' : ''; ?>>Yes</option>
                                                         </select>
-                                                        
+
                                                     <?php elseif ($field_meta['type'] === 'gender'): ?>
                                                         <select name="students[<?php echo $s['id']; ?>][<?php echo $field_name; ?>]" class="form-control-table <?php echo $input_width; ?>">
                                                             <option value="">-- Gender --</option>
@@ -499,7 +499,7 @@ require_once '../../../includes/header.php';
                                                             <option value="female" <?php echo ($current_val === 'female') ? 'selected' : ''; ?>>Female</option>
                                                             <option value="other" <?php echo ($current_val === 'other') ? 'selected' : ''; ?>>Other</option>
                                                         </select>
-                                                        
+
                                                     <?php elseif ($field_meta['type'] === 'blood_group'): ?>
                                                         <select name="students[<?php echo $s['id']; ?>][<?php echo $field_name; ?>]" class="form-control-table <?php echo $input_width; ?>">
                                                             <option value="">-- Select --</option>
@@ -507,7 +507,7 @@ require_once '../../../includes/header.php';
                                                                 <option value="<?php echo $bg; ?>" <?php echo ($current_val === $bg) ? 'selected' : ''; ?>><?php echo $bg; ?></option>
                                                             <?php endforeach; ?>
                                                         </select>
-                                                        
+
                                                     <?php elseif ($field_meta['type'] === 'stream'): ?>
                                                         <select name="students[<?php echo $s['id']; ?>][<?php echo $field_name; ?>]" class="form-control-table <?php echo $input_width; ?>">
                                                             <option value="">-- Stream --</option>
@@ -515,14 +515,14 @@ require_once '../../../includes/header.php';
                                                             <option value="Commerce" <?php echo ($current_val === 'Commerce') ? 'selected' : ''; ?>>Commerce</option>
                                                             <option value="Arts" <?php echo ($current_val === 'Arts') ? 'selected' : ''; ?>>Arts</option>
                                                         </select>
-                                                        
+
                                                     <?php elseif ($field_meta['type'] === 'medium'): ?>
                                                         <select name="students[<?php echo $s['id']; ?>][<?php echo $field_name; ?>]" class="form-control-table <?php echo $input_width; ?>">
                                                             <option value="">-- Medium --</option>
                                                             <option value="English" <?php echo ($current_val === 'English') ? 'selected' : ''; ?>>English</option>
                                                             <option value="Hindi" <?php echo ($current_val === 'Hindi') ? 'selected' : ''; ?>>Hindi</option>
                                                         </select>
-                                                        
+
                                                     <?php elseif ($field_meta['type'] === 'referred_by'): ?>
                                                         <select name="students[<?php echo $s['id']; ?>][<?php echo $field_name; ?>]" class="form-control-table <?php echo $input_width; ?>">
                                                             <option value="">-- Select --</option>
@@ -530,7 +530,7 @@ require_once '../../../includes/header.php';
                                                             <option value="Staff" <?php echo ($current_val === 'Staff') ? 'selected' : ''; ?>>Staff</option>
                                                             <option value="Agent" <?php echo ($current_val === 'Agent') ? 'selected' : ''; ?>>Agent</option>
                                                         </select>
-                                                        
+
                                                     <?php elseif ($field_meta['type'] === 'religion'): ?>
                                                         <select name="students[<?php echo $s['id']; ?>][<?php echo $field_name; ?>]" class="form-control-table <?php echo $input_width; ?>">
                                                             <option value="">-- Select --</option>
@@ -538,7 +538,7 @@ require_once '../../../includes/header.php';
                                                                 <option value="<?php echo $rel; ?>" <?php echo ($current_val === $rel) ? 'selected' : ''; ?>><?php echo $rel; ?></option>
                                                             <?php endforeach; ?>
                                                         </select>
-                                                        
+
                                                     <?php elseif ($field_meta['type'] === 'category'): ?>
                                                         <select name="students[<?php echo $s['id']; ?>][<?php echo $field_name; ?>]" class="form-control-table <?php echo $input_width; ?>">
                                                             <option value="">-- Select --</option>
@@ -546,7 +546,7 @@ require_once '../../../includes/header.php';
                                                                 <option value="<?php echo $cat; ?>" <?php echo ($current_val === $cat) ? 'selected' : ''; ?>><?php echo $cat; ?></option>
                                                             <?php endforeach; ?>
                                                         </select>
-                                                        
+
                                                     <?php elseif ($field_meta['type'] === 'year'): ?>
                                                         <select name="students[<?php echo $s['id']; ?>][<?php echo $field_name; ?>]" class="form-control-table <?php echo $input_width; ?>">
                                                             <option value="">-- Select --</option>

@@ -6,7 +6,6 @@ $school_id = enforce_tenant();
 
 require_once '../../../config/db.php';
 
-
 // Helper function to safely extract strings from deeply nested arrays
 if (!function_exists('get_flat_string')) {
     function get_flat_string($val)
@@ -25,9 +24,10 @@ if (isset($_GET['get_student_details']) && isset($_GET['id'])) {
     $sid = intval($_GET['id']);
 
     $stmt = $pdo->prepare("
-        SELECT s.*, u.username as u_name
+        SELECT s.*, u.username as u_name, ps.parent_id
         FROM   students s
         JOIN   users u ON s.user_id = u.id
+        LEFT JOIN parent_students ps ON s.id = ps.student_id
         WHERE  s.id = :id AND s.school_id = :school_id
     ");
     $stmt->execute([':id' => $sid, ':school_id' => $school_id]);
@@ -50,6 +50,29 @@ if (isset($_GET['get_student_details']) && isset($_GET['id'])) {
     exit;
 }
 
+// AJAX endpoint for fetching parent details
+if (isset($_GET['get_parent_details']) && isset($_GET['id'])) {
+    header('Content-Type: application/json');
+    $pid = intval($_GET['id']);
+
+    $stmt = $pdo->prepare("
+        SELECT p.*, u.username as u_name
+        FROM   parents p
+        JOIN   users u ON p.user_id = u.id
+        WHERE  p.id = :id AND p.school_id = :school_id
+    ");
+    $stmt->execute([':id' => $pid, ':school_id' => $school_id]);
+    $parent_data = $stmt->fetch();
+
+    if ($parent_data) {
+        echo json_encode(['success' => true, 'data' => $parent_data]);
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Parent not found.']);
+    }
+    exit;
+}
+
+
 // Fetch sessions, classes and sections for dropdowns
 $stmt = $pdo->prepare("SELECT * FROM academic_sessions WHERE school_id = :school_id ORDER BY id DESC");
 $stmt->execute([':school_id' => $school_id]);
@@ -63,6 +86,12 @@ $stmt = $pdo->prepare("SELECT * FROM sections WHERE school_id = :school_id ORDER
 $stmt->execute([':school_id' => $school_id]);
 $all_sections = $stmt->fetchAll();
 
+// Fetch parents for parent selection dropdown
+$stmt = $pdo->prepare("SELECT * FROM parents WHERE school_id = :school_id AND deleted_at IS NULL ORDER BY first_name ASC");
+$stmt->execute([':school_id' => $school_id]);
+$all_parents = $stmt->fetchAll();
+
+
 $sections_by_class = [];
 foreach ($all_classes as $c) {
     foreach ($all_sections as $s) {
@@ -73,6 +102,28 @@ foreach ($all_classes as $c) {
     }
 }
 
+// Fetch fee structures grouped by class to pass to JavaScript
+$stmt_fee_structs = $pdo->prepare("
+    SELECT s.class_id, sfi.fee_name, sfi.fee_type, sfi.amount, sfi.apply_to, sfi.linked_to
+    FROM student_fee_items sfi
+    JOIN students s ON sfi.student_id = s.id
+    WHERE s.school_id = :school_id AND sfi.is_active = 1 AND s.deleted_at IS NULL
+    GROUP BY s.class_id, sfi.fee_name, sfi.fee_type
+");
+$stmt_fee_structs->execute([':school_id' => $school_id]);
+$fee_structs_raw = $stmt_fee_structs->fetchAll(PDO::FETCH_ASSOC);
+
+$class_fees_json_data = [];
+foreach ($fee_structs_raw as $fs) {
+    $class_fees_json_data[$fs['class_id']][] = [
+        'fee_name' => $fs['fee_name'],
+        'fee_type' => $fs['fee_type'],
+        'amount' => (float)$fs['amount'],
+        'apply_to' => $fs['apply_to'],
+        'linked_to' => $fs['linked_to']
+    ];
+}
+
 // ─── POST ACTIONS HANDLING ──────────────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
@@ -81,6 +132,101 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!isset($_POST['csrf_token']) || !verify_csrf_token($_POST['csrf_token'])) {
         $_SESSION['flash_error'] = "Invalid security token. Please try again.";
         header('Location: index.php');
+        exit;
+    }
+
+    // Add Parent (AJAX Action)
+    if ($action === 'add_parent') {
+        header('Content-Type: application/json');
+        
+        $first_name = trim($_POST['first_name'] ?? '');
+        $last_name = trim($_POST['last_name'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $mobile = trim($_POST['mobile'] ?? '');
+        $username = trim($_POST['username'] ?? '');
+        $password = $_POST['password'] ?? '';
+
+        if (empty($first_name) || empty($mobile) || empty($username)) {
+            echo json_encode(['success' => false, 'message' => 'First Name, Mobile No, and Username are required fields.']);
+            exit;
+        }
+
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM users WHERE username = :username");
+        $stmt->execute([':username' => $username]);
+        if ($stmt->fetchColumn() > 0) {
+            echo json_encode(['success' => false, 'message' => 'Username is already taken.']);
+            exit;
+        }
+
+        if (empty($password)) { 
+            $password = bin2hex(random_bytes(4)); // Random 8 character password
+        }
+
+        try {
+            $pdo->beginTransaction();
+            $stmt = $pdo->prepare("
+                INSERT INTO users (school_id, role_id, username, first_name, last_name, email, phone, password, gender, status)
+                VALUES (:school_id, 4, :username, :first_name, :last_name, :email, :phone, :password, :gender, 'active')
+            ");
+            $gender_val = !empty($_POST['gender']) ? strtolower($_POST['gender']) : 'male';
+            $stmt->execute([
+                ':school_id' => $school_id,
+                ':username' => $username,
+                ':first_name' => $first_name,
+                ':last_name' => $last_name,
+                ':email' => $email,
+                ':phone' => $mobile,
+                ':password' => password_hash($password, PASSWORD_DEFAULT),
+                ':gender' => $gender_val
+            ]);
+            $user_id = $pdo->lastInsertId();
+
+            $stmt_parent = $pdo->prepare("
+                INSERT INTO parents (
+                    school_id, user_id, first_name, last_name, mobile, alternate_mobile, whatsapp_no, email,
+                    gender, parent_type, aadhaar_no, qualification, designation, company_name, company_address, company_phone, address, pincode, city, state, country, status
+                ) VALUES (
+                    :school_id, :user_id, :first_name, :last_name, :mobile, :alternate_mobile, :whatsapp_no, :email,
+                    :gender, :parent_type, :aadhaar_no, :qualification, :designation, :company_name, :company_address, :company_phone, :address, :pincode, :city, :state, :country, 'active'
+                )
+            ");
+            $parent_type = $_POST['parent_type'] ?? 'Father';
+            $stmt_parent->execute([
+                ':school_id' => $school_id,
+                ':user_id' => $user_id,
+                ':first_name' => $first_name,
+                ':last_name' => $last_name,
+                ':mobile' => $mobile,
+                ':alternate_mobile' => $_POST['alternate_mobile'] ?? null,
+                ':whatsapp_no' => $_POST['whatsapp_no'] ?? null,
+                ':email' => $email,
+                ':gender' => $gender_val,
+                ':parent_type' => $parent_type,
+                ':aadhaar_no' => $_POST['aadhaar_no'] ?? null,
+                ':qualification' => $_POST['qualification'] ?? null,
+                ':designation' => $_POST['designation'] ?? null,
+                ':company_name' => $_POST['company_name'] ?? null,
+                ':company_address' => $_POST['company_address'] ?? null,
+                ':company_phone' => $_POST['company_phone'] ?? null,
+                ':address' => $_POST['address'] ?? null,
+                ':pincode' => $_POST['pincode'] ?? null,
+                ':city' => $_POST['city'] ?? null,
+                ':state' => $_POST['state'] ?? null,
+                ':country' => $_POST['country'] ?? 'India'
+            ]);
+            $parent_id = $pdo->lastInsertId();
+            
+            $pdo->commit();
+            $display_name = trim($first_name . ' ' . $last_name) . ' (' . ($mobile ?: 'No Mobile') . ') - ' . $parent_type;
+            echo json_encode([
+                'success' => true,
+                'parent_id' => $parent_id,
+                'display_name' => $display_name
+            ]);
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            echo json_encode(['success' => false, 'message' => 'Failed to create parent: ' . $e->getMessage()]);
+        }
         exit;
     }
 
@@ -168,15 +314,217 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // Add Student
     if ($action === 'add') {
+        // Retrieve and trim POST inputs
         $first_name = trim($_POST['first_name'] ?? '');
         $last_name = trim($_POST['last_name'] ?? '');
         $email = trim($_POST['email'] ?? '');
         $mobile_no = trim($_POST['mobile_no'] ?? '');
+        $alternate_no = trim($_POST['alternate_no'] ?? '');
         $username = trim($_POST['username'] ?? '');
         $password = $_POST['password'] ?? '';
 
-        if (empty($first_name) || empty($email) || empty($username)) {
-            $_SESSION['flash_error'] = "First Name, Email, and Username are required fields.";
+        $dob = trim($_POST['dob'] ?? '');
+        $admission_date = trim($_POST['admission_date'] ?? '');
+        $class_id = intval($_POST['class_id'] ?? 0);
+        $section_id = intval($_POST['section_id'] ?? 0);
+        $session_id = intval($_POST['session_id'] ?? 0);
+        $gender = trim($_POST['gender'] ?? '');
+        $roll_no = trim($_POST['roll_no'] ?? '');
+        $admission_no = trim($_POST['admission_no'] ?? '');
+        $aadhar_no = trim($_POST['aadhar_no'] ?? '');
+        $pen_no = trim($_POST['pen_no'] ?? '');
+        $apaar_id = trim($_POST['apaar_id'] ?? '');
+
+        // Parent Information
+        $father_name = trim($_POST['father_name'] ?? '');
+        $mother_name = trim($_POST['mother_name'] ?? '');
+        $guardian_name = trim($_POST['guardian_name'] ?? '');
+        $father_mobile = trim($_POST['father_mobile'] ?? '');
+        $mother_mobile = trim($_POST['mother_mobile'] ?? '');
+        $guardian_mobile = trim($_POST['guardian_mobile'] ?? '');
+        $guardian_address = trim($_POST['guardian_address'] ?? '');
+
+        // Address Information
+        $address_val = trim($_POST['address'] ?? '');
+        $city_val = trim($_POST['city'] ?? '');
+        $district_val = trim($_POST['district'] ?? '');
+        if (empty($district_val)) {
+            $district_val = $city_val;
+        }
+        $state_val = trim($_POST['state'] ?? '');
+        $pincode_val = trim($_POST['pincode'] ?? '');
+        $country_val = trim($_POST['country'] ?? 'INDIA');
+        if (empty($country_val)) {
+            $country_val = 'INDIA';
+        }
+
+        // Category & Reservation
+        $category = trim($_POST['category'] ?? '');
+        $religion = trim($_POST['religion'] ?? '');
+        $is_minority = trim($_POST['is_minority'] ?? '');
+        $is_rte = trim($_POST['is_rte'] ?? 'no');
+        $rte_application_no = null;
+        if ($is_rte === 'yes') {
+            $rte_application_no = trim($_POST['rte_application_no'] ?? '');
+        }
+        $is_bpl = trim($_POST['is_bpl'] ?? 'no');
+        $special_needs = trim($_POST['special_needs'] ?? 'no');
+
+        // Warning bypass flag
+        $name_dob_bypass = trim($_POST['name_dob_bypass'] ?? '');
+
+        // Server-Side Validations
+        if (empty($first_name) || strlen($first_name) < 2) {
+            $_SESSION['flash_error'] = "Student First Name is required and must be minimum 2 characters.";
+            header('Location: index.php');
+            exit;
+        }
+        if (empty($gender)) {
+            $_SESSION['flash_error'] = "Gender is required.";
+            header('Location: index.php');
+            exit;
+        }
+        if (empty($dob)) {
+            $_SESSION['flash_error'] = "Date of Birth is required.";
+            header('Location: index.php');
+            exit;
+        }
+        if (strtotime($dob) > time()) {
+            $_SESSION['flash_error'] = "Date of Birth cannot be a future date.";
+            header('Location: index.php');
+            exit;
+        }
+        if (empty($admission_date)) {
+            $_SESSION['flash_error'] = "Admission Date is required.";
+            header('Location: index.php');
+            exit;
+        }
+        if (strtotime($admission_date) < strtotime($dob)) {
+            $_SESSION['flash_error'] = "Admission Date cannot be before Date of Birth.";
+            header('Location: index.php');
+            exit;
+        }
+        if (empty($class_id) || empty($section_id) || empty($session_id)) {
+            $_SESSION['flash_error'] = "Class, Section, and Academic Session are required.";
+            header('Location: index.php');
+            exit;
+        }
+        if (!empty($aadhar_no) && !preg_match('/^\d{12}$/', $aadhar_no)) {
+            $_SESSION['flash_error'] = "Aadhaar Number must be exactly 12 digits.";
+            header('Location: index.php');
+            exit;
+        }
+        if (empty($mobile_no) || !preg_match('/^\d{10}$/', $mobile_no)) {
+            $_SESSION['flash_error'] = "Primary Mobile Number is required and must be a valid 10-digit Indian number.";
+            header('Location: index.php');
+            exit;
+        }
+        if (!empty($alternate_no) && !preg_match('/^\d{10}$/', $alternate_no)) {
+            $_SESSION['flash_error'] = "Alternate Mobile Number must be a valid 10-digit Indian number if entered.";
+            header('Location: index.php');
+            exit;
+        }
+        if (!empty($email) && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $_SESSION['flash_error'] = "Please provide a valid student Email address format.";
+            header('Location: index.php');
+            exit;
+        }
+
+        // Parent / Guardian Validation
+        if (empty($father_name) && empty($mother_name)) {
+            if (empty($guardian_name) || empty($guardian_mobile) || empty($guardian_address)) {
+                $_SESSION['flash_error'] = "Guardian Name, Mobile, and Address are required if Parent details are unavailable.";
+                header('Location: index.php');
+                exit;
+            }
+        } else {
+            if (empty($father_name)) {
+                $_SESSION['flash_error'] = "Father Name is required.";
+                header('Location: index.php');
+                exit;
+            }
+            if (empty($mother_name)) {
+                $_SESSION['flash_error'] = "Mother Name is required.";
+                header('Location: index.php');
+                exit;
+            }
+        }
+
+        if (!empty($father_mobile) && !preg_match('/^\d{10}$/', $father_mobile)) {
+            $_SESSION['flash_error'] = "Father Mobile must be a valid 10-digit Indian number.";
+            header('Location: index.php');
+            exit;
+        }
+        if (!empty($mother_mobile) && !preg_match('/^\d{10}$/', $mother_mobile)) {
+            $_SESSION['flash_error'] = "Mother Mobile must be a valid 10-digit Indian number.";
+            header('Location: index.php');
+            exit;
+        }
+        if (!empty($guardian_mobile) && !preg_match('/^\d{10}$/', $guardian_mobile)) {
+            $_SESSION['flash_error'] = "Guardian Mobile must be a valid 10-digit Indian number.";
+            header('Location: index.php');
+            exit;
+        }
+
+        // Address Validation
+        if (empty($address_val) || empty($city_val) || empty($district_val) || empty($state_val) || empty($pincode_val)) {
+            $_SESSION['flash_error'] = "Current Address, State, District, City, and PIN Code are required.";
+            header('Location: index.php');
+            exit;
+        }
+        if (!preg_match('/^\d{6}$/', $pincode_val)) {
+            $_SESSION['flash_error'] = "PIN Code must be a valid 6-digit Indian PIN code.";
+            header('Location: index.php');
+            exit;
+        }
+
+        // Category & Reservation Validation
+        if (empty($category)) {
+            $_SESSION['flash_error'] = "Category is required.";
+            header('Location: index.php');
+            exit;
+        }
+
+        // Document Validations (file inputs checks)
+        $photo_uploaded = (isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK);
+        $dob_uploaded = (isset($_FILES['dob_certificate']) && $_FILES['dob_certificate']['error'] === UPLOAD_ERR_OK);
+        $aadhar_uploaded = (isset($_FILES['aadhar_file']) && $_FILES['aadhar_file']['error'] === UPLOAD_ERR_OK);
+        $cat_uploaded = (isset($_FILES['category_certificate']) && $_FILES['category_certificate']['error'] === UPLOAD_ERR_OK);
+
+        if (!$photo_uploaded) {
+            $_SESSION['flash_error'] = "Passport-size Student Photo is required.";
+            header('Location: index.php');
+            exit;
+        }
+        if (!$dob_uploaded) {
+            $_SESSION['flash_error'] = "Birth Certificate document is required.";
+            header('Location: index.php');
+            exit;
+        }
+        if (!empty($aadhar_no) && !$aadhar_uploaded) {
+            $_SESSION['flash_error'] = "Aadhaar Card document upload is required when Aadhaar Number is provided.";
+            header('Location: index.php');
+            exit;
+        }
+        if ($is_rte === 'yes') {
+            if (!$aadhar_uploaded) {
+                $_SESSION['flash_error'] = "Aadhaar Card document upload is mandatory for RTE beneficiaries.";
+                header('Location: index.php');
+                exit;
+            }
+            if (!$dob_uploaded) {
+                $_SESSION['flash_error'] = "Birth Certificate document upload is mandatory for RTE beneficiaries.";
+                header('Location: index.php');
+                exit;
+            }
+        }
+        if (in_array($category, ['SC', 'ST', 'OBC']) && !$cat_uploaded) {
+            $_SESSION['flash_error'] = "Caste Certificate document upload is required for SC/ST/OBC reservation categories.";
+            header('Location: index.php');
+            exit;
+        }
+        if (($category === 'EWS' || $is_bpl === 'yes') && !$cat_uploaded) {
+            $_SESSION['flash_error'] = "Income Certificate (upload as Category Certificate) is required for EWS/BPL reservation status.";
             header('Location: index.php');
             exit;
         }
@@ -190,18 +538,152 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
+        // Verify Class Capacity Limit (max 40 active students per section)
+        $stmt_cap = $pdo->prepare("
+            SELECT COUNT(*)
+            FROM students
+            WHERE class_id = :class_id
+              AND section_id = :section_id
+              AND deleted_at IS NULL
+              AND status = 'active'
+        ");
+        $stmt_cap->execute([':class_id' => $class_id, ':section_id' => $section_id]);
+        if ($stmt_cap->fetchColumn() >= 40) {
+            $_SESSION['flash_error'] = "Admission failed: The selected Class and Section has reached its maximum virtual capacity limit (40).";
+            header('Location: index.php');
+            exit;
+        }
+
+        // Verify Fee Structure exists
+        $stmt_fee_check = $pdo->prepare("
+            SELECT COUNT(*)
+            FROM student_fee_items sfi
+            JOIN students s ON sfi.student_id = s.id
+            WHERE s.school_id = :school_id AND s.class_id = :class_id AND sfi.is_active = 1
+        ");
+        $stmt_fee_check->execute([':school_id' => $school_id, ':class_id' => $class_id]);
+        if ($stmt_fee_check->fetchColumn() == 0) {
+            $_SESSION['flash_error'] = "Admission failed: No active fee structure exists for the selected class. Admission is prevented.";
+            header('Location: index.php');
+            exit;
+        }
+
+        // Auto-generate Admission Number if empty
+        if (empty($admission_no)) {
+            $stmt_max_adm = $pdo->prepare("
+                SELECT admission_no
+                FROM students
+                WHERE school_id = :school_id
+                  AND admission_no REGEXP '^[0-9]+$'
+                ORDER BY CAST(admission_no AS UNSIGNED) DESC
+                LIMIT 1
+            ");
+            $stmt_max_adm->execute([':school_id' => $school_id]);
+            $max_adm = $stmt_max_adm->fetchColumn();
+            $admission_no = $max_adm ? strval(intval($max_adm) + 1) : "5001";
+        }
+
+        // Duplicate checks
+        // a. Same Admission Number
+        $stmt_dup = $pdo->prepare("SELECT COUNT(*) FROM students WHERE school_id = :school_id AND admission_no = :admission_no AND deleted_at IS NULL");
+        $stmt_dup->execute([':school_id' => $school_id, ':admission_no' => $admission_no]);
+        if ($stmt_dup->fetchColumn() > 0) {
+            $_SESSION['flash_error'] = "Admission Number '{$admission_no}' is already assigned to another active student.";
+            header('Location: index.php');
+            exit;
+        }
+
+        // b. Same Aadhaar Number
+        if (!empty($aadhar_no)) {
+            $stmt_dup = $pdo->prepare("SELECT COUNT(*) FROM students WHERE school_id = :school_id AND aadhar_no = :aadhar_no AND deleted_at IS NULL");
+            $stmt_dup->execute([':school_id' => $school_id, ':aadhar_no' => $aadhar_no]);
+            if ($stmt_dup->fetchColumn() > 0) {
+                $_SESSION['flash_error'] = "A student with Aadhaar Number '{$aadhar_no}' is already registered.";
+                header('Location: index.php');
+                exit;
+            }
+        }
+
+        // c. Same PEN/APAAR ID
+        if (!empty($pen_no)) {
+            $stmt_dup = $pdo->prepare("SELECT COUNT(*) FROM students WHERE school_id = :school_id AND pen_no = :pen_no AND deleted_at IS NULL");
+            $stmt_dup->execute([':school_id' => $school_id, ':pen_no' => $pen_no]);
+            if ($stmt_dup->fetchColumn() > 0) {
+                $_SESSION['flash_error'] = "A student with PEN Number '{$pen_no}' is already registered.";
+                header('Location: index.php');
+                exit;
+            }
+        }
+        if (!empty($apaar_id)) {
+            $stmt_dup = $pdo->prepare("SELECT COUNT(*) FROM students WHERE school_id = :school_id AND apaar_id = :apaar_id AND deleted_at IS NULL");
+            $stmt_dup->execute([':school_id' => $school_id, ':apaar_id' => $apaar_id]);
+            if ($stmt_dup->fetchColumn() > 0) {
+                $_SESSION['flash_error'] = "A student with APAAR ID '{$apaar_id}' is already registered.";
+                header('Location: index.php');
+                exit;
+            }
+        }
+
+        // d. Same Roll Number in Class/Section
+        if (!empty($roll_no)) {
+            $stmt_dup = $pdo->prepare("SELECT COUNT(*) FROM students WHERE school_id = :school_id AND class_id = :class_id AND section_id = :section_id AND roll_no = :roll_no AND deleted_at IS NULL");
+            $stmt_dup->execute([
+                ':school_id' => $school_id,
+                ':class_id' => $class_id,
+                ':section_id' => $section_id,
+                ':roll_no' => $roll_no
+            ]);
+            if ($stmt_dup->fetchColumn() > 0) {
+                $_SESSION['flash_error'] = "Roll Number '{$roll_no}' is already taken in the selected Class & Section.";
+                header('Location: index.php');
+                exit;
+            }
+        }
+
+        // e. Warning Only: Same Student Name + DOB Combination
+        if ($name_dob_bypass !== 'yes') {
+            $stmt_dup = $pdo->prepare("
+                SELECT COUNT(*)
+                FROM students
+                WHERE school_id = :school_id
+                  AND LOWER(first_name) = LOWER(:first_name)
+                  AND LOWER(last_name) = LOWER(:last_name)
+                  AND dob = :dob
+                  AND deleted_at IS NULL
+            ");
+            $stmt_dup->execute([
+                ':school_id' => $school_id,
+                ':first_name' => $first_name,
+                ':last_name' => $last_name,
+                ':dob' => $dob
+            ]);
+            if ($stmt_dup->fetchColumn() > 0) {
+                $_SESSION['flash_error'] = "Warning: A student with the same name and DOB already exists. Check the bypass box to confirm and save.";
+                header('Location: index.php');
+                exit;
+            }
+        }
+
+        // Religion adjustment if minority checkbox is active
+        if ($is_minority === 'yes') {
+            $religion = empty($religion) ? '(Minority)' : $religion . ' (Minority)';
+        }
+
+        // Concatenate District into address
+        $full_address = $address_val . ", District: " . $district_val;
+
         if (empty($password)) {
             $password = bin2hex(random_bytes(4)); // Random 8 character password
         }
 
         // Upload Directory
-        $upload_dir = 'c:/xampp/htdocs/schoolerp/uploads/students/';
+        $upload_dir = ROOT_PATH . 'uploads/students/';
         if (!is_dir($upload_dir)) {
             @mkdir($upload_dir, 0777, true);
         }
 
         $photo_path = null;
-        if (isset($_FILES['photo']) && $_FILES['photo']['error'] === UPLOAD_ERR_OK) {
+        if ($photo_uploaded) {
             $ext = strtolower(pathinfo($_FILES['photo']['name'], PATHINFO_EXTENSION));
             $new_name = 'photo_' . uniqid() . '.' . $ext;
             if (move_uploaded_file($_FILES['photo']['tmp_name'], $upload_dir . $new_name)) {
@@ -210,7 +692,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $dob_cert_path = null;
-        if (isset($_FILES['dob_certificate']) && $_FILES['dob_certificate']['error'] === UPLOAD_ERR_OK) {
+        if ($dob_uploaded) {
             $ext = strtolower(pathinfo($_FILES['dob_certificate']['name'], PATHINFO_EXTENSION));
             $new_name = 'dob_' . uniqid() . '.' . $ext;
             if (move_uploaded_file($_FILES['dob_certificate']['tmp_name'], $upload_dir . $new_name)) {
@@ -219,7 +701,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $category_cert_path = null;
-        if (isset($_FILES['category_certificate']) && $_FILES['category_certificate']['error'] === UPLOAD_ERR_OK) {
+        if ($cat_uploaded) {
             $ext = strtolower(pathinfo($_FILES['category_certificate']['name'], PATHINFO_EXTENSION));
             $new_name = 'cat_' . uniqid() . '.' . $ext;
             if (move_uploaded_file($_FILES['category_certificate']['tmp_name'], $upload_dir . $new_name)) {
@@ -228,7 +710,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $aadhar_file_path = null;
-        if (isset($_FILES['aadhar_file']) && $_FILES['aadhar_file']['error'] === UPLOAD_ERR_OK) {
+        if ($aadhar_uploaded) {
             $ext = strtolower(pathinfo($_FILES['aadhar_file']['name'], PATHINFO_EXTENSION));
             $new_name = 'aadhar_' . uniqid() . '.' . $ext;
             if (move_uploaded_file($_FILES['aadhar_file']['tmp_name'], $upload_dir . $new_name)) {
@@ -272,16 +754,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
+        // Fetch fee structures for selected class to calculate total and prepare seeding rows
+        $stmt_class_fees = $pdo->prepare("
+            SELECT sfi.fee_name, sfi.fee_type, sfi.amount, sfi.apply_to, sfi.linked_to
+            FROM student_fee_items sfi
+            JOIN students s ON sfi.student_id = s.id
+            WHERE s.school_id = :school_id AND s.class_id = :class_id AND sfi.is_active = 1
+            GROUP BY sfi.fee_name, sfi.fee_type
+        ");
+        $stmt_class_fees->execute([':school_id' => $school_id, ':class_id' => $class_id]);
+        $class_fees = $stmt_class_fees->fetchAll(PDO::FETCH_ASSOC);
+
+        $calculated_total_fees = 0.00;
+        $student_fee_rows = [];
+        foreach ($class_fees as $cf) {
+            $amt = (float)$cf['amount'];
+            $isTuition = (stripos($cf['fee_type'], 'tuition') !== false || stripos($cf['fee_name'], 'tuition') !== false);
+            $remark = '';
+            if ($is_rte === 'yes' && $isTuition) {
+                $amt = 0.00;
+                $remark = 'Waived under RTE';
+            }
+            $calculated_total_fees += $amt;
+            $student_fee_rows[] = [
+                'fee_name' => $cf['fee_name'],
+                'fee_type' => $cf['fee_type'],
+                'apply_to' => $cf['apply_to'],
+                'linked_to' => $cf['linked_to'],
+                'amount' => $amt,
+                'remark' => $remark
+            ];
+        }
+
         try {
             $pdo->beginTransaction();
 
             // 1. Create Auth User
             $stmt = $pdo->prepare("
-                INSERT INTO users (school_id, role_id, username, first_name, last_name, email, phone, password, gender, dob, status)
-                VALUES (:school_id, 5, :username, :first_name, :last_name, :email, :phone, :password, :gender, :dob, 'active')
+                INSERT INTO users (school_id, role_id, username, first_name, last_name, email, phone, password, gender, dob, address, pincode, city, state, country, status)
+                VALUES (:school_id, 5, :username, :first_name, :last_name, :email, :phone, :password, :gender, :dob, :address, :pincode, :city, :state, :country, 'active')
             ");
-            $gender_val = !empty($_POST['gender']) ? strtolower($_POST['gender']) : null;
-            $dob_val = !empty($_POST['dob']) ? $_POST['dob'] : null;
+            $gender_val = !empty($gender) ? strtolower($gender) : null;
+            $dob_val = !empty($dob) ? $dob : null;
 
             $stmt->execute([
                 ':school_id' => $school_id,
@@ -292,7 +806,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':phone' => $mobile_no,
                 ':password' => password_hash($password, PASSWORD_DEFAULT),
                 ':gender' => $gender_val,
-                ':dob' => $dob_val
+                ':dob' => $dob_val,
+                ':address' => $full_address,
+                ':pincode' => $pincode_val,
+                ':city' => $city_val,
+                ':state' => $state_val,
+                ':country' => $country_val
             ]);
             $user_id = $pdo->lastInsertId();
 
@@ -303,7 +822,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     apaar_id, pen_no, registration_no_prefix, registration_no,
                     enrollment_no_prefix, enrollment_no, sr_no_prefix, sr_no, general_reg_no,
                     admission_no_prefix, admission_no, admission_date, srn_no, roll_no,
-                    stream, education_medium, photo, referred_by, is_rte,
+                    stream, education_medium, photo, referred_by, is_rte, rte_application_no,
                     enrolled_session, enrolled_class_id, enrolled_year, special_needs, is_bpl, house_block,
                     first_name, last_name, father_name, mobile_no, alternate_no, whatsapp_no, email,
                     gender, blood_group, height, weight, dob, place_of_birth, dob_certificate, dob_certificate_no,
@@ -319,7 +838,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     :apaar_id, :pen_no, :registration_no_prefix, :registration_no,
                     :enrollment_no_prefix, :enrollment_no, :sr_no_prefix, :sr_no, :general_reg_no,
                     :admission_no_prefix, :admission_no, :admission_date, :srn_no, :roll_no,
-                    :stream, :education_medium, :photo, :referred_by, :is_rte,
+                    :stream, :education_medium, :photo, :referred_by, :is_rte, :rte_application_no,
                     :enrolled_session, :enrolled_class_id, :enrolled_year, :special_needs, :is_bpl, :house_block,
                     :first_name, :last_name, :father_name, :mobile_no, :alternate_no, :whatsapp_no, :email,
                     :gender, :blood_group, :height, :weight, :dob, :place_of_birth, :dob_certificate, :dob_certificate_no,
@@ -336,11 +855,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt_student->execute([
                 ':school_id' => $school_id,
                 ':user_id' => $user_id,
-                ':session_id' => !empty($_POST['session_id']) ? intval($_POST['session_id']) : null,
-                ':class_id' => !empty($_POST['class_id']) ? intval($_POST['class_id']) : null,
-                ':section_id' => !empty($_POST['section_id']) ? intval($_POST['section_id']) : null,
-                ':apaar_id' => !empty($_POST['apaar_id']) ? trim($_POST['apaar_id']) : null,
-                ':pen_no' => !empty($_POST['pen_no']) ? trim($_POST['pen_no']) : null,
+                ':session_id' => $session_id,
+                ':class_id' => $class_id,
+                ':section_id' => $section_id,
+                ':apaar_id' => !empty($apaar_id) ? $apaar_id : null,
+                ':pen_no' => !empty($pen_no) ? $pen_no : null,
                 ':registration_no_prefix' => !empty($_POST['registration_no_prefix']) ? trim($_POST['registration_no_prefix']) : null,
                 ':registration_no' => !empty($_POST['registration_no']) ? trim($_POST['registration_no']) : null,
                 ':enrollment_no_prefix' => !empty($_POST['enrollment_no_prefix']) ? trim($_POST['enrollment_no_prefix']) : null,
@@ -349,26 +868,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':sr_no' => !empty($_POST['sr_no']) ? trim($_POST['sr_no']) : null,
                 ':general_reg_no' => !empty($_POST['general_reg_no']) ? trim($_POST['general_reg_no']) : null,
                 ':admission_no_prefix' => !empty($_POST['admission_no_prefix']) ? get_flat_string($_POST['admission_no_prefix']) : null,
-                ':admission_no' => !empty($_POST['admission_no']) ? get_flat_string($_POST['admission_no']) : null,
+                ':admission_no' => $admission_no,
                 ':admission_date' => !empty($_POST['admission_date']) ? $_POST['admission_date'] : null,
                 ':srn_no' => !empty($_POST['srn_no']) ? get_flat_string($_POST['srn_no']) : null,
-                ':roll_no' => !empty($_POST['roll_no']) ? get_flat_string($_POST['roll_no']) : null,
+                ':roll_no' => !empty($roll_no) ? $roll_no : null,
                 ':stream' => !empty($_POST['stream']) ? $_POST['stream'] : null,
                 ':education_medium' => !empty($_POST['education_medium']) ? $_POST['education_medium'] : null,
                 ':photo' => $photo_path,
                 ':referred_by' => !empty($_POST['referred_by']) ? $_POST['referred_by'] : null,
-                ':is_rte' => !empty($_POST['is_rte']) ? $_POST['is_rte'] : 'no',
+                ':is_rte' => $is_rte,
+                ':rte_application_no' => $rte_application_no,
                 ':enrolled_session' => !empty($_POST['enrolled_session']) ? trim($_POST['enrolled_session']) : null,
                 ':enrolled_class_id' => !empty($_POST['enrolled_class_id']) ? intval($_POST['enrolled_class_id']) : null,
                 ':enrolled_year' => !empty($_POST['enrolled_year']) ? $_POST['enrolled_year'] : null,
-                ':special_needs' => !empty($_POST['special_needs']) ? $_POST['special_needs'] : 'no',
-                ':is_bpl' => !empty($_POST['is_bpl']) ? $_POST['is_bpl'] : 'no',
+                ':special_needs' => $special_needs,
+                ':is_bpl' => $is_bpl,
                 ':house_block' => !empty($_POST['house_block']) ? $_POST['house_block'] : null,
                 ':first_name' => $first_name,
                 ':last_name' => $last_name,
-                ':father_name' => !empty($_POST['father_name']) ? trim($_POST['father_name']) : null,
+                ':father_name' => !empty($father_name) ? $father_name : null,
                 ':mobile_no' => $mobile_no,
-                ':alternate_no' => !empty($_POST['alternate_no']) ? trim($_POST['alternate_no']) : null,
+                ':alternate_no' => !empty($alternate_no) ? $alternate_no : null,
                 ':whatsapp_no' => !empty($_POST['whatsapp_no']) ? trim($_POST['whatsapp_no']) : null,
                 ':email' => $email,
                 ':gender' => $gender_val,
@@ -379,7 +899,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':place_of_birth' => !empty($_POST['place_of_birth']) ? trim($_POST['place_of_birth']) : null,
                 ':dob_certificate' => $dob_cert_path,
                 ':dob_certificate_no' => !empty($_POST['dob_certificate_no']) ? trim($_POST['dob_certificate_no']) : null,
-                ':total_fees' => !empty($_POST['total_fees']) ? floatval($_POST['total_fees']) : 0.00,
+                ':total_fees' => (isset($_POST['generate_fees']) && $_POST['generate_fees'] === 'yes') ? $calculated_total_fees : 0.00,
                 ':total_paid' => !empty($_POST['total_paid']) ? floatval($_POST['total_paid']) : 0.00,
                 ':total_discount' => !empty($_POST['total_discount']) ? floatval($_POST['total_discount']) : 0.00,
                 ':fine_amount' => !empty($_POST['fine_amount']) ? floatval($_POST['fine_amount']) : 0.00,
@@ -388,11 +908,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':caste_app_no' => !empty($_POST['caste_app_no']) ? trim($_POST['caste_app_no']) : null,
                 ':domicile_app_no' => !empty($_POST['domicile_app_no']) ? trim($_POST['domicile_app_no']) : null,
                 ':nationality' => !empty($_POST['nationality']) ? trim($_POST['nationality']) : 'INDIAN',
-                ':religion' => !empty($_POST['religion']) ? trim($_POST['religion']) : null,
-                ':category' => !empty($_POST['category']) ? trim($_POST['category']) : null,
+                ':religion' => $religion,
+                ':category' => $category,
                 ':caste' => !empty($_POST['caste']) ? trim($_POST['caste']) : null,
                 ':category_certificate' => $category_cert_path,
-                ':aadhar_no' => !empty($_POST['aadhar_no']) ? trim($_POST['aadhar_no']) : null,
+                ':aadhar_no' => !empty($aadhar_no) ? $aadhar_no : null,
                 ':aadhar_file' => $aadhar_file_path,
                 ':tc_no' => !empty($_POST['tc_no']) ? trim($_POST['tc_no']) : null,
                 ':tc_issue_date' => !empty($_POST['tc_issue_date']) ? $_POST['tc_issue_date'] : null,
@@ -408,14 +928,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':bank_account_holder' => !empty($_POST['bank_account_holder']) ? trim($_POST['bank_account_holder']) : null,
                 ':bank_account_no' => !empty($_POST['bank_account_no']) ? trim($_POST['bank_account_no']) : null,
                 ':pan_no' => !empty($_POST['pan_no']) ? trim($_POST['pan_no']) : null,
-                ':mother_name' => !empty($_POST['mother_name']) ? trim($_POST['mother_name']) : null,
+                ':mother_name' => !empty($mother_name) ? $mother_name : null,
                 ':mother_qualification' => !empty($_POST['mother_qualification']) ? trim($_POST['mother_qualification']) : null,
                 ':mother_address' => !empty($_POST['mother_address']) ? trim($_POST['mother_address']) : null,
                 ':mother_occupation' => !empty($_POST['mother_occupation']) ? trim($_POST['mother_occupation']) : null,
                 ':mother_official_address' => !empty($_POST['mother_official_address']) ? trim($_POST['mother_official_address']) : null,
                 ':mother_income' => !empty($_POST['mother_income']) ? trim($_POST['mother_income']) : null,
                 ':mother_email' => !empty($_POST['mother_email']) ? trim($_POST['mother_email']) : null,
-                ':mother_mobile' => !empty($_POST['mother_mobile']) ? trim($_POST['mother_mobile']) : null,
+                ':mother_mobile' => !empty($mother_mobile) ? $mother_mobile : null,
                 ':mother_aadhar' => !empty($_POST['mother_aadhar']) ? trim($_POST['mother_aadhar']) : null,
                 ':mother_photo' => $mother_photo_path,
                 ':father_qualification' => !empty($_POST['father_qualification']) ? trim($_POST['father_qualification']) : null,
@@ -424,21 +944,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':father_official_address' => !empty($_POST['father_official_address']) ? trim($_POST['father_official_address']) : null,
                 ':father_income' => !empty($_POST['father_income']) ? trim($_POST['father_income']) : null,
                 ':father_email' => !empty($_POST['father_email']) ? trim($_POST['father_email']) : null,
-                ':father_mobile' => !empty($_POST['father_mobile']) ? trim($_POST['father_mobile']) : null,
+                ':father_mobile' => !empty($father_mobile) ? $father_mobile : null,
                 ':father_aadhar' => !empty($_POST['father_aadhar']) ? trim($_POST['father_aadhar']) : null,
                 ':father_photo' => $father_photo_path,
-                ':guardian_name' => !empty($_POST['guardian_name']) ? trim($_POST['guardian_name']) : null,
+                ':guardian_name' => !empty($guardian_name) ? $guardian_name : null,
                 ':guardian_qualification' => !empty($_POST['guardian_qualification']) ? trim($_POST['guardian_qualification']) : null,
-                ':guardian_address' => !empty($_POST['guardian_address']) ? trim($_POST['guardian_address']) : null,
+                ':guardian_address' => !empty($guardian_address) ? $guardian_address : null,
                 ':guardian_occupation' => !empty($_POST['guardian_occupation']) ? trim($_POST['guardian_occupation']) : null,
                 ':guardian_official_address' => !empty($_POST['guardian_official_address']) ? trim($_POST['guardian_official_address']) : null,
                 ':guardian_income' => !empty($_POST['guardian_income']) ? trim($_POST['guardian_income']) : null,
                 ':guardian_email' => !empty($_POST['guardian_email']) ? trim($_POST['guardian_email']) : null,
-                ':guardian_mobile' => !empty($_POST['guardian_mobile']) ? trim($_POST['guardian_mobile']) : null,
+                ':guardian_mobile' => !empty($guardian_mobile) ? $guardian_mobile : null,
                 ':guardian_aadhar' => !empty($_POST['guardian_aadhar']) ? trim($_POST['guardian_aadhar']) : null,
                 ':guardian_photo' => $guardian_photo_path
             ]);
             $student_id = $pdo->lastInsertId();
+
+            // Link parent account if selected
+            $parent_id_selected = isset($_POST['parent_id_select']) ? intval($_POST['parent_id_select']) : 0;
+            if ($parent_id_selected > 0) {
+                $pdo->prepare("INSERT INTO parent_students (parent_id, student_id) VALUES (:parent_id, :student_id)")
+                    ->execute([':parent_id' => $parent_id_selected, ':student_id' => $student_id]);
+            }
+
             // 3. Create Qualifications details securely
             $qual_names   = $_POST['qualification'] ?? [];
             $qual_years   = $_POST['passing_year'] ?? [];
@@ -486,7 +1014,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
+            // 4. Create Student Fee Items (auto-seeding)
+            if (isset($_POST['generate_fees']) && $_POST['generate_fees'] === 'yes') {
+                $stmt_ins_fee = $pdo->prepare("
+                    INSERT INTO student_fee_items (student_id, fee_name, fee_type, apply_to, linked_to, amount, is_active, remark)
+                    VALUES (:student_id, :fee_name, :fee_type, :apply_to, :linked_to, :amount, 1, :remark)
+                ");
+                foreach ($student_fee_rows as $row) {
+                    $stmt_ins_fee->execute([
+                        ':student_id' => $student_id,
+                        ':fee_name' => $row['fee_name'],
+                        ':fee_type' => $row['fee_type'],
+                        ':apply_to' => $row['apply_to'],
+                        ':linked_to' => $row['linked_to'],
+                        ':amount' => $row['amount'],
+                        ':remark' => $row['remark']
+                    ]);
+                }
+            }
+
             $pdo->commit();
+
+            // Log successful admission to log file
+            $log_dir = ROOT_PATH . 'uploads/students/';
+            if (!is_dir($log_dir)) {
+                @mkdir($log_dir, 0777, true);
+            }
+            $log_file = $log_dir . 'admission_activity.log';
+            $log_msg = "[" . date('Y-m-d H:i:s') . "] SUCCESS: Admitted student '{$first_name} {$last_name}' (Admission No: {$admission_no}) to Class ID {$class_id}, Section ID {$section_id} by User ID " . ($_SESSION['user_id'] ?? 'unknown') . "\n";
+            @file_put_contents($log_file, $log_msg, FILE_APPEND);
+
             $_SESSION['flash_success'] = "Student registered successfully! Username: $username, Password: $password";
         } catch (Exception $e) {
             $pdo->rollBack();
@@ -536,7 +1093,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         // Upload Directory
-        $upload_dir = 'c:/xampp/htdocs/schoolerp/uploads/students/';
+        $upload_dir = ROOT_PATH . 'uploads/students/';
         if (!is_dir($upload_dir)) {
             @mkdir($upload_dir, 0777, true);
         }
@@ -731,6 +1288,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     photo = :photo,
                     referred_by = :referred_by,
                     is_rte = :is_rte,
+                    rte_application_no = :rte_application_no,
                     enrolled_session = :enrolled_session,
                     enrolled_class_id = :enrolled_class_id,
                     enrolled_year = :enrolled_year,
@@ -837,6 +1395,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':photo' => $photo_path,
                 ':referred_by' => !empty($_POST['referred_by']) ? $_POST['referred_by'] : null,
                 ':is_rte' => !empty($_POST['is_rte']) ? $_POST['is_rte'] : 'no',
+                ':rte_application_no' => (!empty($_POST['is_rte']) && $_POST['is_rte'] === 'yes') ? trim($_POST['rte_application_no'] ?? '') : null,
                 ':enrolled_session' => !empty($_POST['enrolled_session']) ? trim($_POST['enrolled_session']) : null,
                 ':enrolled_class_id' => !empty($_POST['enrolled_class_id']) ? intval($_POST['enrolled_class_id']) : null,
                 ':enrolled_year' => !empty($_POST['enrolled_year']) ? $_POST['enrolled_year'] : null,
@@ -921,6 +1480,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':school_id' => $school_id
             ]);
 
+            // Update parent relationship
+            $parent_id_selected = isset($_POST['parent_id_select']) ? intval($_POST['parent_id_select']) : 0;
+            $pdo->prepare("DELETE FROM parent_students WHERE student_id = :student_id")->execute([':student_id' => $student_id]);
+            if ($parent_id_selected > 0) {
+                $pdo->prepare("INSERT INTO parent_students (parent_id, student_id) VALUES (:parent_id, :student_id)")
+                    ->execute([':parent_id' => $parent_id_selected, ':student_id' => $student_id]);
+            }
+
             // 3. Create Qualifications details securely
             $qual_names   = $_POST['qualification'] ?? [];
             $qual_years   = $_POST['passing_year'] ?? [];
@@ -969,29 +1536,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             $pdo->commit();
 
-            if ($new_photo_uploaded && $student['photo'] && file_exists('c:/xampp/htdocs/schoolerp/' . $student['photo'])) {
-                @unlink('c:/xampp/htdocs/schoolerp/' . $student['photo']);
+            if ($new_photo_uploaded && $student['photo'] && file_exists(ROOT_PATH . $student['photo'])) {
+                @unlink(ROOT_PATH . $student['photo']);
             }
-            if ($new_dob_uploaded && $student['dob_certificate'] && file_exists('c:/xampp/htdocs/schoolerp/' . $student['dob_certificate'])) {
-                @unlink('c:/xampp/htdocs/schoolerp/' . $student['dob_certificate']);
+            if ($new_dob_uploaded && $student['dob_certificate'] && file_exists(ROOT_PATH . $student['dob_certificate'])) {
+                @unlink(ROOT_PATH . $student['dob_certificate']);
             }
-            if ($new_category_cert_uploaded && $student['category_certificate'] && file_exists('c:/xampp/htdocs/schoolerp/' . $student['category_certificate'])) {
-                @unlink('c:/xampp/htdocs/schoolerp/' . $student['category_certificate']);
+            if ($new_category_cert_uploaded && $student['category_certificate'] && file_exists(ROOT_PATH . $student['category_certificate'])) {
+                @unlink(ROOT_PATH . $student['category_certificate']);
             }
-            if ($new_aadhar_file_uploaded && $student['aadhar_file'] && file_exists('c:/xampp/htdocs/schoolerp/' . $student['aadhar_file'])) {
-                @unlink('c:/xampp/htdocs/schoolerp/' . $student['aadhar_file']);
+            if ($new_aadhar_file_uploaded && $student['aadhar_file'] && file_exists(ROOT_PATH . $student['aadhar_file'])) {
+                @unlink(ROOT_PATH . $student['aadhar_file']);
             }
-            if ($new_tc_file_uploaded && $student['tc_file'] && file_exists('c:/xampp/htdocs/schoolerp/' . $student['tc_file'])) {
-                @unlink('c:/xampp/htdocs/schoolerp/' . $student['tc_file']);
+            if ($new_tc_file_uploaded && $student['tc_file'] && file_exists(ROOT_PATH . $student['tc_file'])) {
+                @unlink(ROOT_PATH . $student['tc_file']);
             }
-            if ($new_mother_photo_uploaded && $student['mother_photo'] && file_exists('c:/xampp/htdocs/schoolerp/' . $student['mother_photo'])) {
-                @unlink('c:/xampp/htdocs/schoolerp/' . $student['mother_photo']);
+            if ($new_mother_photo_uploaded && $student['mother_photo'] && file_exists(ROOT_PATH . $student['mother_photo'])) {
+                @unlink(ROOT_PATH . $student['mother_photo']);
             }
-            if ($new_father_photo_uploaded && $student['father_photo'] && file_exists('c:/xampp/htdocs/schoolerp/' . $student['father_photo'])) {
-                @unlink('c:/xampp/htdocs/schoolerp/' . $student['father_photo']);
+            if ($new_father_photo_uploaded && $student['father_photo'] && file_exists(ROOT_PATH . $student['father_photo'])) {
+                @unlink(ROOT_PATH . $student['father_photo']);
             }
-            if ($new_guardian_photo_uploaded && $student['guardian_photo'] && file_exists('c:/xampp/htdocs/schoolerp/' . $student['guardian_photo'])) {
-                @unlink('c:/xampp/htdocs/schoolerp/' . $student['guardian_photo']);
+            if ($new_guardian_photo_uploaded && $student['guardian_photo'] && file_exists(ROOT_PATH . $student['guardian_photo'])) {
+                @unlink(ROOT_PATH . $student['guardian_photo']);
             }
 
             $_SESSION['flash_success'] = "Student details updated successfully!";
@@ -1222,15 +1789,25 @@ require_once '../../../includes/header.php';
     <div class="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title fw-bold" id="addStudentModalLabel">Add Student Admission</h5>
+                <h5 class="modal-title fw-bold" id="addStudentModalLabel">Add Student</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form action="index.php" method="POST" enctype="multipart/form-data">
+            <form id="addStudentForm" action="index.php" method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                 <input type="hidden" name="action" value="add">
 
                 <div class="modal-body">
-                    <h6 class="text-primary text-uppercase mb-3">Admission Details:</h6>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="text-primary text-uppercase mb-0">Admission Details:</h6>
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="text-xs fw-bold text-dark">Session</span>
+                            <select name="session_id" class="form-control-admin py-1" style="width: auto; min-width: 140px;">
+                                <?php foreach ($all_sessions as $ses): ?>
+                                    <option value="<?php echo $ses['id']; ?>" <?php echo $ses['is_current'] ? 'selected' : ''; ?>><?php echo sanitize($ses['name']); ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
                     <div class="modal-section-card">
                         <div class="row g-3">
                             <div class="col-md-4">
@@ -1343,19 +1920,24 @@ require_once '../../../includes/header.php';
                             <div class="col-md-4">
                                 <label class="form-label-admin">Is RTE Student?</label>
                                 <div class="d-flex gap-3 mt-2">
-                                    <label class="form-check-label"><input type="radio" name="is_rte" value="yes" class="form-check-input"> Yes</label>
-                                    <label class="form-check-label"><input type="radio" name="is_rte" value="no" value="no" checked class="form-check-input"> No</label>
+                                    <div class="form-check">
+                                        <input type="radio" name="is_rte" id="add_is_rte_yes" value="yes" class="form-check-input">
+                                        <label class="form-check-label" for="add_is_rte_yes">Yes</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" name="is_rte" id="add_is_rte_no" value="no" checked class="form-check-input">
+                                        <label class="form-check-label" for="add_is_rte_no">No</label>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label-admin">Session</label>
-                                <select name="session_id" class="form-control-admin">
-                                    <?php foreach ($all_sessions as $ses): ?>
-                                        <option value="<?php echo $ses['id']; ?>" <?php echo $ses['is_current'] ? 'selected' : ''; ?>><?php echo sanitize($ses['name']); ?></option>
-                                    <?php endforeach; ?>
-                                </select>
+                            <div class="col-md-4 rte-conditional-field d-none">
+                                <!-- Placeholder to maintain row grid alignment -->
                             </div>
 
+                            <div class="col-md-4 rte-conditional-field d-none" id="rte_app_no_container">
+                                <label class="form-label-admin">RTE Application No</label>
+                                <input type="text" name="rte_application_no" id="add_rte_application_no" class="form-control-admin" placeholder="RTE Application No">
+                            </div>
                             <div class="col-md-4">
                                 <label class="form-label-admin">Enrolled Session</label>
                                 <input type="text" name="enrolled_session" class="form-control-admin" placeholder="Enrolled Session">
@@ -1369,6 +1951,7 @@ require_once '../../../includes/header.php';
                                     <?php endforeach; ?>
                                 </select>
                             </div>
+
                             <div class="col-md-4">
                                 <label class="form-label-admin">Enrolled Year</label>
                                 <select name="enrolled_year" class="form-control-admin">
@@ -1378,24 +1961,46 @@ require_once '../../../includes/header.php';
                                     <?php endfor; ?>
                                 </select>
                             </div>
-
                             <div class="col-md-4">
                                 <label class="form-label-admin">Child with special needs?</label>
                                 <div class="d-flex gap-3 mt-2">
-                                    <label class="form-check-label"><input type="radio" name="special_needs" value="yes" class="form-check-input"> Yes</label>
-                                    <label class="form-check-label"><input type="radio" name="special_needs" value="no" checked class="form-check-input"> No</label>
+                                    <div class="form-check">
+                                        <input type="radio" name="special_needs" id="add_special_needs_yes" value="yes" class="form-check-input">
+                                        <label class="form-check-label" for="add_special_needs_yes">Yes</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" name="special_needs" id="add_special_needs_no" value="no" checked class="form-check-input">
+                                        <label class="form-check-label" for="add_special_needs_no">No</label>
+                                    </div>
                                 </div>
                             </div>
                             <div class="col-md-4">
+                                <label class="form-label-admin">Remark</label>
+                                <input type="text" name="admission_remark" class="form-control-admin" placeholder="Remark">
+                            </div>
+
+                            <div class="col-md-4">
                                 <label class="form-label-admin">Is BPL Student?</label>
                                 <div class="d-flex gap-3 mt-2">
-                                    <label class="form-check-label"><input type="radio" name="is_bpl" value="yes" class="form-check-input"> Yes</label>
-                                    <label class="form-check-label"><input type="radio" name="is_bpl" value="no" checked class="form-check-input"> No</label>
+                                    <div class="form-check">
+                                        <input type="radio" name="is_bpl" id="add_is_bpl_yes" value="yes" class="form-check-input">
+                                        <label class="form-check-label" for="add_is_bpl_yes">Yes</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" name="is_bpl" id="add_is_bpl_no" value="no" checked class="form-check-input">
+                                        <label class="form-check-label" for="add_is_bpl_no">No</label>
+                                    </div>
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label-admin">Select house/block</label>
-                                <input type="text" name="house_block" class="form-control-admin" placeholder="House/Block">
+                                <select name="house_block" class="form-control-admin">
+                                    <option value="">-- Select --</option>
+                                    <option value="Red">Red</option>
+                                    <option value="Green">Green</option>
+                                    <option value="Blue">Blue</option>
+                                    <option value="Yellow">Yellow</option>
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -1405,15 +2010,22 @@ require_once '../../../includes/header.php';
                         <div class="row g-3">
                             <div class="col-md-4">
                                 <label class="form-label-admin">First Name *</label>
-                                <input type="text" name="first_name" class="form-control-admin" placeholder="First Name" required>
+                                <input type="text" name="first_name" id="student_first_name" class="form-control-admin" placeholder="First Name" required>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label-admin">Last Name</label>
-                                <input type="text" name="last_name" class="form-control-admin" placeholder="Last Name">
+                                <input type="text" name="last_name" id="student_last_name" class="form-control-admin" placeholder="Last Name">
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label-admin">Father's Name</label>
-                                <input type="text" name="father_name" class="form-control-admin" placeholder="Father's Name">
+                            <div class="col-md-12 d-none" id="duplicate-warning-container">
+                                <div class="alert alert-warning mb-0 text-xs font-secondary py-2">
+                                    <div class="d-flex align-items-center flex-wrap gap-2">
+                                        <span><i class="ph-light ph-warning-circle"></i> A student with the same name and DOB already exists.</span>
+                                        <div class="form-check mb-0 fw-bold text-danger ms-2">
+                                            <input type="checkbox" name="name_dob_bypass" id="add_name_dob_bypass" value="yes" class="form-check-input">
+                                            <label class="form-check-label" for="add_name_dob_bypass">Bypass Warning & Save anyway</label>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="col-md-4">
@@ -1436,9 +2048,18 @@ require_once '../../../includes/header.php';
                             <div class="col-md-4">
                                 <label class="form-label-admin">Gender</label>
                                 <div class="d-flex gap-3 mt-2">
-                                    <label class="form-check-label"><input type="radio" name="gender" value="male" checked class="form-check-input"> Male</label>
-                                    <label class="form-check-label"><input type="radio" name="gender" value="female" class="form-check-input"> Female</label>
-                                    <label class="form-check-label"><input type="radio" name="gender" value="other" class="form-check-input"> Other</label>
+                                    <div class="form-check">
+                                        <input type="radio" name="gender" id="add_gender_male" value="male" checked class="form-check-input">
+                                        <label class="form-check-label" for="add_gender_male">Male</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" name="gender" id="add_gender_female" value="female" class="form-check-input">
+                                        <label class="form-check-label" for="add_gender_female">Female</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" name="gender" id="add_gender_other" value="other" class="form-check-input">
+                                        <label class="form-check-label" for="add_gender_other">Other</label>
+                                    </div>
                                 </div>
                             </div>
                             <div class="col-md-4">
@@ -1457,16 +2078,17 @@ require_once '../../../includes/header.php';
                             </div>
 
                             <div class="col-md-4">
-                                <label class="form-label-admin">Height (cm)</label>
+                                <label class="form-label-admin">Height</label>
                                 <input type="text" name="height" class="form-control-admin" placeholder="Height">
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label-admin">Weight (kg)</label>
+                                <label class="form-label-admin">Weight</label>
                                 <input type="text" name="weight" class="form-control-admin" placeholder="Weight">
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label-admin">DOB</label>
-                                <input type="date" name="dob" class="form-control-admin">
+                                <label class="form-label-admin">DOB *</label>
+                                <input type="date" name="dob" id="student_dob" class="form-control-admin" required>
+                                <small class="text-xs text-muted d-block mt-1" id="student_age_display"></small>
                             </div>
 
                             <div class="col-md-4">
@@ -1484,44 +2106,13 @@ require_once '../../../includes/header.php';
                         </div>
                     </div>
 
-                    <h6 class="text-primary text-uppercase mb-3 mt-4">System Access & Biometrics:</h6>
-                    <div class="modal-section-card">
-                        <div class="row g-3">
-                            <div class="col-md-4">
-                                <label class="form-label-admin">Username *</label>
-                                <input type="text" name="username" class="form-control-admin" placeholder="Username" required>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label-admin">Password</label>
-                                <input type="password" name="password" class="form-control-admin" placeholder="Leave blank to generate random">
-                            </div>
-                            <div class="col-md-4">
-                                <label class="form-label-admin">Biometric Code</label>
-                                <input type="text" name="biometric_code" class="form-control-admin" placeholder="Biometric Code">
-                            </div>
-                        </div>
-                    </div>
-
-                    <h6 class="text-primary text-uppercase mb-3 mt-4">Fees Details:</h6>
-                    <div class="modal-section-card">
-                        <div class="row g-3">
-                            <div class="col-md-3">
-                                <label class="form-label-admin">Total Fees</label>
-                                <input type="number" step="0.01" name="total_fees" class="form-control-admin" value="0.00">
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label-admin">Total Paid</label>
-                                <input type="number" step="0.01" name="total_paid" class="form-control-admin" value="0.00">
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label-admin">Total Discount</label>
-                                <input type="number" step="0.01" name="total_discount" class="form-control-admin" value="0.00">
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label-admin">Fine Amount</label>
-                                <input type="number" step="0.01" name="fine_amount" class="form-control-admin" value="0.00">
-                            </div>
-                        </div>
+                    <!-- Hidden fee fields to satisfy JS validation/logic -->
+                    <div style="display:none;">
+                        <input type="number" step="0.01" name="total_fees" id="student_total_fees" value="0.00">
+                        <input type="number" step="0.01" name="total_paid" id="student_total_paid" value="0.00">
+                        <input type="number" step="0.01" name="total_discount" id="student_total_discount" value="0.00">
+                        <input type="number" step="0.01" name="fine_amount" id="student_fine_amount" value="0.00">
+                        <div id="fee-breakdown-container"></div>
                     </div>
 
                     <h6 class="text-primary text-uppercase mb-3 mt-4">Previous Qualifications Details:</h6>
@@ -1543,9 +2134,11 @@ require_once '../../../includes/header.php';
                             </tbody>
                         </table>
                     </div>
-                    <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="addQualificationRowBtn">
-                        <i class="ph-light ph-plus"></i> Add Row
-                    </button>
+                    <div class="d-flex justify-content-center mt-2 mb-4">
+                        <button type="button" class="btn btn-primary p-0 d-flex align-items-center justify-content-center" id="addQualificationRowBtn" style="width: 32px; height: 32px; border-radius: 4px;">
+                            <i class="ph-bold ph-plus" style="font-size: 16px;"></i>
+                        </button>
+                    </div>
 
                     <h6 class="text-primary text-uppercase mb-3 mt-4">Income, Caste & Domicile Details:</h6>
                     <div class="modal-section-card">
@@ -1568,12 +2161,20 @@ require_once '../../../includes/header.php';
                     <h6 class="text-primary text-uppercase mb-3 mt-4">Parents Details:</h6>
                     <p class="text-xs text-muted mb-2" style="margin-top:-6px;">You can link the children with a parent account to make siblings.</p>
                     <div class="modal-section-card">
-                        <div class="row g-3 mb-3">
-                            <div class="col-12">
-                                <label class="form-label-admin">Select parent</label>
-                                <select name="parent_id_select" class="form-control-admin">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span class="text-xs fw-bold text-dark">Select parent</span>
+                            <div class="d-flex align-items-center gap-2">
+                                <select name="parent_id_select" id="parent_id_select" class="form-control-admin py-1" style="width: auto; min-width: 250px;">
                                     <option value="">-- Select Parent --</option>
+                                    <?php foreach ($all_parents as $p): 
+                                        $display = sanitize(trim($p['first_name'] . ' ' . $p['last_name']) . ' (' . ($p['mobile'] ?: 'No Mobile') . ') - ' . $p['parent_type']);
+                                    ?>
+                                        <option value="<?php echo $p['id']; ?>"><?php echo $display; ?></option>
+                                    <?php endforeach; ?>
                                 </select>
+                                <button type="button" class="btn btn-primary p-0 d-flex align-items-center justify-content-center" id="addParentBtn" style="width: 32px; height: 32px; border-radius: 4px;">
+                                    <i class="ph-bold ph-plus" style="font-size: 16px;"></i>
+                                </button>
                             </div>
                         </div>
                         <div class="table-responsive">
@@ -1691,12 +2292,21 @@ require_once '../../../includes/header.php';
                                 <input type="text" name="religion" class="form-control-admin" placeholder="Religion">
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label-admin">Category</label>
-                                <input type="text" name="category" class="form-control-admin" placeholder="Category">
+                                <label class="form-label-admin">Category *</label>
+                                <input type="text" name="category" class="form-control-admin" placeholder="Category" required>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label-admin">Caste</label>
                                 <input type="text" name="caste" class="form-control-admin" placeholder="Caste">
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label-admin">Is Minority Student?</label>
+                                <div class="d-flex gap-3 mt-2">
+                                    <div class="form-check">
+                                        <input type="checkbox" name="is_minority" id="add_is_minority" value="yes" class="form-check-input">
+                                        <label class="form-check-label" for="add_is_minority">Yes</label>
+                                    </div>
+                                </div>
                             </div>
                             <div class="col-md-12">
                                 <label class="form-label-admin">Category Certificate</label>
@@ -1769,7 +2379,7 @@ require_once '../../../includes/header.php';
                         </div>
                     </div>
 
-                    <h6 class="text-primary text-uppercase mb-3 mt-4">Bank Account Details:</h6>
+                    <h6 class="text-primary text-uppercase mb-3 mt-4">Bank Details For Official Work:</h6>
                     <div class="modal-section-card">
                         <div class="row g-3">
                             <div class="col-md-4">
@@ -1793,16 +2403,147 @@ require_once '../../../includes/header.php';
                                 <input type="text" name="bank_account_no" class="form-control-admin" placeholder="Account No.">
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label-admin">PAN No.</label>
-                                <input type="text" name="pan_no" class="form-control-admin" placeholder="PAN No.">
+                                <label class="form-label-admin">UPI</label>
+                                <input type="text" name="pan_no" class="form-control-admin" placeholder="UPI">
                             </div>
+                        </div>
+                    </div>
+
+                    <h6 class="text-primary text-uppercase mb-3 mt-4">Last School Details (If Any):</h6>
+                    <div class="modal-section-card">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label class="form-label-admin">Name & Address of School</label>
+                                <input type="text" name="last_school_name" class="form-control-admin" placeholder="Name & Address of School">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label-admin">Attended Classes</label>
+                                <select name="last_school_attended_classes" class="form-control-admin">
+                                    <option value="">Select</option>
+                                    <?php foreach ($all_classes as $c): ?>
+                                        <option value="<?php echo $c['id']; ?>"><?php echo sanitize($c['name']); ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label-admin">Last School Affiliated to</label>
+                                <select name="last_school_affiliated" class="form-control-admin">
+                                    <option value="">Select</option>
+                                    <option value="CBSE">CBSE</option>
+                                    <option value="ICSE">ICSE</option>
+                                    <option value="State Board">State Board</option>
+                                    <option value="IB">IB</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label-admin">Last Session</label>
+                                <input type="text" name="last_school_session" class="form-control-admin" placeholder="Last Session">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label-admin">Is Student Dropout?</label>
+                                <div class="d-flex gap-3 mt-2">
+                                    <div class="form-check">
+                                        <input type="radio" name="is_dropout" id="add_is_dropout_yes" value="yes" class="form-check-input">
+                                        <label class="form-check-label" for="add_is_dropout_yes">Yes</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" name="is_dropout" id="add_is_dropout_no" value="no" checked class="form-check-input">
+                                        <label class="form-check-label" for="add_is_dropout_no">No</label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h6 class="text-primary text-uppercase mb-3 mt-4">Student Address:</h6>
+                    <div class="modal-section-card">
+                        <div class="row g-3">
+                            <div class="col-md-12">
+                                <label class="form-label-admin">Address *</label>
+                                <textarea name="address" class="form-control-admin" rows="2" placeholder="Address" required></textarea>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label-admin">Pincode *</label>
+                                <input type="text" name="pincode" class="form-control-admin" placeholder="Search pincode here..." required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label-admin">City *</label>
+                                <input type="text" name="city" class="form-control-admin" placeholder="City name" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label-admin">State *</label>
+                                <input type="text" name="state" class="form-control-admin" placeholder="State name" required>
+                            </div>
+                            <div class="col-md-3">
+                                <label class="form-label-admin">Country *</label>
+                                <input type="text" name="country" class="form-control-admin" placeholder="Country" value="INDIA" required>
+                            </div>
+                            <input type="hidden" name="district" id="student_district" value="">
+                        </div>
+                    </div>
+
+                    <div class="modal-section-card mt-4">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label-admin">Student admission type *</label>
+                                <div class="d-flex gap-3 mt-2">
+                                    <div class="form-check">
+                                        <input type="radio" name="admission_type" id="add_admission_type_new" value="New" checked class="form-check-input">
+                                        <label class="form-check-label" for="add_admission_type_new">New</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" name="admission_type" id="add_admission_type_old" value="Old" class="form-check-input">
+                                        <label class="form-check-label" for="add_admission_type_old">Old</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label-admin">Remark if any</label>
+                                <input type="text" name="remark_if_any" class="form-control-admin" placeholder="Remark if any">
+                            </div>
+                        </div>
+
+                        <div class="mt-4">
+                            <label class="form-label-admin fw-bold">Do you want to generate the following along with this account?</label>
+                            <div class="d-flex gap-4 mt-2">
+                                <div class="form-check">
+                                    <input type="checkbox" name="generate_fees" id="add_generate_fees" value="yes" checked class="form-check-input">
+                                    <label class="form-check-label" for="add_generate_fees">
+                                        Fees structure <span class="text-muted">(It'll create the student fees only if the fees structures exist.)</span>
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input type="checkbox" name="generate_id_card" id="add_generate_id_card" value="yes" class="form-check-input">
+                                    <label class="form-check-label" for="add_generate_id_card">
+                                        ID card <span class="text-muted">(It'll create the student ID card only if the id cards exist.)</span>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h6 class="text-primary text-uppercase mb-3 mt-4">Details for login</h6>
+                    <div class="modal-section-card">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label-admin">Username *</label>
+                                <span class="text-muted text-xxs d-block" style="margin-top: -4px; margin-bottom: 4px;">(Username must be unique, it'll be used for login)</span>
+                                <input type="text" name="username" class="form-control-admin" placeholder="Username" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label-admin">Password</label>
+                                <span class="text-muted text-xxs d-block" style="margin-top: -4px; margin-bottom: 4px;">(If you don't enter, a random password will be generated)</span>
+                                <input type="password" name="password" class="form-control-admin" placeholder="Password">
+                            </div>
+                            <input type="hidden" name="biometric_code" value="">
                         </div>
                     </div>
                 </div>
 
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    <button type="submit" class="btn btn-primary">Save Student</button>
+                <div class="modal-footer d-flex justify-content-between">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" style="background-color: #8b9e8f; border-color: #8b9e8f;">Close</button>
+                    <button type="submit" class="btn btn-primary" style="background-color: #0d6efd; border-color: #0d6efd;">Save</button>
                 </div>
             </form>
         </div>
@@ -1936,9 +2677,23 @@ require_once '../../../includes/header.php';
                             <div class="col-md-4">
                                 <label class="form-label-admin">Is RTE Student?</label>
                                 <div class="d-flex gap-3 mt-2">
-                                    <label class="form-check-label"><input type="radio" name="is_rte" id="edit_is_rte_yes" value="yes" class="form-check-input"> Yes</label>
-                                    <label class="form-check-label"><input type="radio" name="is_rte" id="edit_is_rte_no" value="no" class="form-check-input"> No</label>
+                                    <div class="form-check">
+                                        <input type="radio" name="is_rte" id="edit_is_rte_yes" value="yes" class="form-check-input">
+                                        <label class="form-check-label" for="edit_is_rte_yes">Yes</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" name="is_rte" id="edit_is_rte_no" value="no" class="form-check-input">
+                                        <label class="form-check-label" for="edit_is_rte_no">No</label>
+                                    </div>
                                 </div>
+                            </div>
+                            <div class="col-md-4 edit-rte-conditional-field d-none">
+                                <!-- Placeholder to maintain row grid alignment -->
+                            </div>
+
+                            <div class="col-md-4 edit-rte-conditional-field d-none" id="edit_rte_app_no_container">
+                                <label class="form-label-admin">RTE Application No</label>
+                                <input type="text" name="rte_application_no" id="edit_rte_application_no" class="form-control-admin" placeholder="RTE Application No">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label-admin">Session</label>
@@ -1985,20 +2740,38 @@ require_once '../../../includes/header.php';
                             <div class="col-md-4">
                                 <label class="form-label-admin">Child with special needs?</label>
                                 <div class="d-flex gap-3 mt-2">
-                                    <label class="form-check-label"><input type="radio" name="special_needs" id="edit_special_needs_yes" value="yes" class="form-check-input"> Yes</label>
-                                    <label class="form-check-label"><input type="radio" name="special_needs" id="edit_special_needs_no" value="no" class="form-check-input"> No</label>
+                                    <div class="form-check">
+                                        <input type="radio" name="special_needs" id="edit_special_needs_yes" value="yes" class="form-check-input">
+                                        <label class="form-check-label" for="edit_special_needs_yes">Yes</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" name="special_needs" id="edit_special_needs_no" value="no" class="form-check-input">
+                                        <label class="form-check-label" for="edit_special_needs_no">No</label>
+                                    </div>
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label-admin">Is BPL Student?</label>
                                 <div class="d-flex gap-3 mt-2">
-                                    <label class="form-check-label"><input type="radio" name="is_bpl" id="edit_is_bpl_yes" value="yes" class="form-check-input"> Yes</label>
-                                    <label class="form-check-label"><input type="radio" name="is_bpl" id="edit_is_bpl_no" value="no" class="form-check-input"> No</label>
+                                    <div class="form-check">
+                                        <input type="radio" name="is_bpl" id="edit_is_bpl_yes" value="yes" class="form-check-input">
+                                        <label class="form-check-label" for="edit_is_bpl_yes">Yes</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" name="is_bpl" id="edit_is_bpl_no" value="no" class="form-check-input">
+                                        <label class="form-check-label" for="edit_is_bpl_no">No</label>
+                                    </div>
                                 </div>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label-admin">Select house/block</label>
-                                <input type="text" name="house_block" id="edit_house_block" class="form-control-admin">
+                                <select name="house_block" id="edit_house_block" class="form-control-admin">
+                                    <option value="">-- Select --</option>
+                                    <option value="Red">Red</option>
+                                    <option value="Green">Green</option>
+                                    <option value="Blue">Blue</option>
+                                    <option value="Yellow">Yellow</option>
+                                </select>
                             </div>
                         </div>
                     </div>
@@ -2039,9 +2812,18 @@ require_once '../../../includes/header.php';
                             <div class="col-md-4">
                                 <label class="form-label-admin">Gender</label>
                                 <div class="d-flex gap-3 mt-2">
-                                    <label class="form-check-label"><input type="radio" name="gender" id="edit_gender_male" value="male" class="form-check-input"> Male</label>
-                                    <label class="form-check-label"><input type="radio" name="gender" id="edit_gender_female" value="female" class="form-check-input"> Female</label>
-                                    <label class="form-check-label"><input type="radio" name="gender" id="edit_gender_other" value="other" class="form-check-input"> Other</label>
+                                    <div class="form-check">
+                                        <input type="radio" name="gender" id="edit_gender_male" value="male" class="form-check-input">
+                                        <label class="form-check-label" for="edit_gender_male">Male</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" name="gender" id="edit_gender_female" value="female" class="form-check-input">
+                                        <label class="form-check-label" for="edit_gender_female">Female</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" name="gender" id="edit_gender_other" value="other" class="form-check-input">
+                                        <label class="form-check-label" for="edit_gender_other">Other</label>
+                                    </div>
                                 </div>
                             </div>
                             <div class="col-md-4">
@@ -2088,45 +2870,26 @@ require_once '../../../includes/header.php';
                         </div>
                     </div>
 
-                    <h6 class="text-primary text-uppercase mb-3 mt-4">System Access & Biometrics:</h6>
+                    <h6 class="text-primary text-uppercase mb-3 mt-4">Details for login</h6>
                     <div class="modal-section-card">
                         <div class="row g-3">
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <label class="form-label-admin">Username *</label>
                                 <input type="text" name="username" id="edit_username" class="form-control-admin" required>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-6">
                                 <label class="form-label-admin">Password</label>
                                 <input type="password" name="password" id="edit_password" class="form-control-admin" placeholder="Leave blank to keep current">
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label-admin">Biometric Code</label>
-                                <input type="text" name="biometric_code" id="edit_biometric_code" class="form-control-admin">
-                            </div>
+                            <input type="hidden" name="biometric_code" id="edit_biometric_code">
                         </div>
                     </div>
 
-                    <h6 class="text-primary text-uppercase mb-3 mt-4">Fees Details:</h6>
-                    <div class="modal-section-card">
-                        <div class="row g-3">
-                            <div class="col-md-3">
-                                <label class="form-label-admin">Total Fees</label>
-                                <input type="number" step="0.01" name="total_fees" id="edit_total_fees" class="form-control-admin">
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label-admin">Total Paid</label>
-                                <input type="number" step="0.01" name="total_paid" id="edit_total_paid" class="form-control-admin">
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label-admin">Total Discount</label>
-                                <input type="number" step="0.01" name="total_discount" id="edit_total_discount" class="form-control-admin">
-                            </div>
-                            <div class="col-md-3">
-                                <label class="form-label-admin">Fine Amount</label>
-                                <input type="number" step="0.01" name="fine_amount" id="edit_fine_amount" class="form-control-admin">
-                            </div>
-                        </div>
-                    </div>
+                    <!-- Hidden fee fields to satisfy edit submit logic -->
+                    <input type="hidden" name="total_fees" id="edit_total_fees">
+                    <input type="hidden" name="total_paid" id="edit_total_paid">
+                    <input type="hidden" name="total_discount" id="edit_total_discount">
+                    <input type="hidden" name="fine_amount" id="edit_fine_amount">
 
                     <h6 class="text-primary text-uppercase mb-3 mt-4">Previous Qualifications Details:</h6>
                     <div class="table-responsive">
@@ -2147,9 +2910,11 @@ require_once '../../../includes/header.php';
                             </tbody>
                         </table>
                     </div>
-                    <button type="button" class="btn btn-sm btn-outline-primary mt-2" id="edit_addQualificationRowBtn">
-                        <i class="ph-light ph-plus"></i> Add Row
-                    </button>
+                    <div class="d-flex justify-content-center mt-2 mb-4">
+                        <button type="button" class="btn btn-primary p-0 d-flex align-items-center justify-content-center" id="edit_addQualificationRowBtn" style="width: 32px; height: 32px; border-radius: 4px;">
+                            <i class="ph-bold ph-plus" style="font-size: 16px;"></i>
+                        </button>
+                    </div>
 
                     <h6 class="text-primary text-uppercase mb-3 mt-4">Income, Caste & Domicile Details:</h6>
                     <div class="modal-section-card">
@@ -2172,6 +2937,22 @@ require_once '../../../includes/header.php';
                     <h6 class="text-primary text-uppercase mb-3 mt-4">Parents Details:</h6>
                     <p class="text-xs text-muted mb-2" style="margin-top:-6px;">You can link the children with a parent account to make siblings.</p>
                     <div class="modal-section-card">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span class="text-xs fw-bold text-dark">Select parent</span>
+                            <div class="d-flex align-items-center gap-2">
+                                <select name="parent_id_select" id="edit_parent_id_select" class="form-control-admin py-1" style="width: auto; min-width: 250px;">
+                                    <option value="">-- Select Parent --</option>
+                                    <?php foreach ($all_parents as $p): 
+                                        $display = sanitize(trim($p['first_name'] . ' ' . $p['last_name']) . ' (' . ($p['mobile'] ?: 'No Mobile') . ') - ' . $p['parent_type']);
+                                    ?>
+                                        <option value="<?php echo $p['id']; ?>"><?php echo $display; ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <button type="button" class="btn btn-primary p-0 d-flex align-items-center justify-content-center" id="edit_addParentBtn" style="width: 32px; height: 32px; border-radius: 4px;">
+                                    <i class="ph-bold ph-plus" style="font-size: 16px;"></i>
+                                </button>
+                            </div>
+                        </div>
                         <div class="table-responsive">
                             <table class="table table-bordered table-premium align-middle text-xs mb-0">
                                 <thead class="table-light">
@@ -2377,7 +3158,7 @@ require_once '../../../includes/header.php';
                         </div>
                     </div>
 
-                    <h6 class="text-primary text-uppercase mb-3 mt-4">Bank Account Details:</h6>
+                    <h6 class="text-primary text-uppercase mb-3 mt-4">Bank Details For Official Work:</h6>
                     <div class="modal-section-card">
                         <div class="row g-3">
                             <div class="col-md-4">
@@ -2401,8 +3182,8 @@ require_once '../../../includes/header.php';
                                 <input type="text" name="bank_account_no" id="edit_bank_account_no" class="form-control-admin" placeholder="Account No.">
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label-admin">PAN No.</label>
-                                <input type="text" name="pan_no" id="edit_pan_no" class="form-control-admin" placeholder="PAN No.">
+                                <label class="form-label-admin">UPI</label>
+                                <input type="text" name="pan_no" id="edit_pan_no" class="form-control-admin" placeholder="UPI">
                             </div>
                         </div>
                     </div>
@@ -2417,11 +3198,175 @@ require_once '../../../includes/header.php';
     </div>
 </div>
 
+<div class="modal fade" id="addParentModal" tabindex="-1" aria-labelledby="addParentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="addParentModalLabel">Create Parent Account</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="addParentFormModal">
+                <div class="modal-body">
+                    <!-- Personal Details -->
+                    <h6 class="text-primary text-uppercase mb-3">Personal Details:</h6>
+                    <div class="modal-section-card">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label-admin">First Name *</label>
+                                <input type="text" name="first_name" class="form-control-admin" placeholder="First Name" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label-admin">Last Name</label>
+                                <input type="text" name="last_name" class="form-control-admin" placeholder="Last Name">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label-admin">Mobile No. *</label>
+                                <input type="text" name="mobile" class="form-control-admin" placeholder="Mobile No." required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label-admin">Alternate Mobile No.</label>
+                                <input type="text" name="alternate_mobile" class="form-control-admin" placeholder="Alternate Mobile No.">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label-admin">Whatsapp No.</label>
+                                <input type="text" name="whatsapp_no" class="form-control-admin" placeholder="Whatsapp No.">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label-admin">Email</label>
+                                <input type="email" name="email" class="form-control-admin" placeholder="Email">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label-admin">Gender</label>
+                                <div class="d-flex gap-3 mt-2">
+                                    <div class="form-check">
+                                        <input type="radio" name="gender" id="p_gender_male" value="male" checked class="form-check-input">
+                                        <label class="form-check-label" for="p_gender_male">Male</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" name="gender" id="p_gender_female" value="female" class="form-check-input">
+                                        <label class="form-check-label" for="p_gender_female">Female</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" name="gender" id="p_gender_other" value="other" class="form-check-input">
+                                        <label class="form-check-label" for="p_gender_other">Other</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label-admin">Parent Type *</label>
+                                <div class="d-flex gap-3 mt-2">
+                                    <div class="form-check">
+                                        <input type="radio" name="parent_type" id="p_type_mother" value="Mother" class="form-check-input">
+                                        <label class="form-check-label" for="p_type_mother">Mother</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" name="parent_type" id="p_type_father" value="Father" checked class="form-check-input">
+                                        <label class="form-check-label" for="p_type_father">Father</label>
+                                    </div>
+                                    <div class="form-check">
+                                        <input type="radio" name="parent_type" id="p_type_guardian" value="Guardian" class="form-check-input">
+                                        <label class="form-check-label" for="p_type_guardian">Guardian</label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label-admin">Qualification</label>
+                                <select name="qualification" class="form-control-admin">
+                                    <option value="">Select Qualification</option>
+                                    <option value="Under Graduate">Under Graduate</option>
+                                    <option value="Graduate">Graduate</option>
+                                    <option value="Post Graduate">Post Graduate</option>
+                                    <option value="Doctorate">Doctorate</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label-admin">Aadhar No.</label>
+                                <input type="text" name="aadhaar_no" class="form-control-admin" placeholder="Aadhar No.">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Employment Details -->
+                    <h6 class="text-primary text-uppercase mb-3 mt-4">Employment:</h6>
+                    <div class="modal-section-card">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label-admin">Company/Business</label>
+                                <input type="text" name="company_name" class="form-control-admin" placeholder="Company/Business">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label-admin">Designation</label>
+                                <input type="text" name="designation" class="form-control-admin" placeholder="Designation">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label-admin">Company Address</label>
+                                <input type="text" name="company_address" class="form-control-admin" placeholder="Company Address">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label-admin">Company Phone</label>
+                                <input type="text" name="company_phone" class="form-control-admin" placeholder="Company Phone">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Address Details -->
+                    <h6 class="text-primary text-uppercase mb-3 mt-4">Address:</h6>
+                    <div class="modal-section-card">
+                        <div class="row g-3">
+                            <div class="col-md-12">
+                                <label class="form-label-admin">Address</label>
+                                <input type="text" name="address" class="form-control-admin" placeholder="Address">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label-admin">Pincode</label>
+                                <input type="text" name="pincode" class="form-control-admin" placeholder="Search pincode here...">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label-admin">City</label>
+                                <input type="text" name="city" class="form-control-admin" placeholder="City name">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label-admin">State</label>
+                                <input type="text" name="state" class="form-control-admin" placeholder="State name">
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label-admin">Country</label>
+                                <input type="text" name="country" class="form-control-admin" value="India" placeholder="Country">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Account Login details -->
+                    <h6 class="text-primary text-uppercase mb-3 mt-4">Details for Account Login:</h6>
+                    <div class="modal-section-card">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label-admin">Username *</label>
+                                <input type="text" name="username" class="form-control-admin" placeholder="Username (must be unique)" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label-admin">Password</label>
+                                <input type="password" name="password" class="form-control-admin" placeholder="Password (if empty, random will be generated)">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer d-flex justify-content-between">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Save</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <div id="student-page-data"
     data-csrf-token="<?php echo $csrf_token; ?>"
     data-base-url="<?php echo BASE_URL; ?>"
     data-flash-success="<?php echo sanitize($flash_success); ?>"
-    data-flash-error="<?php echo sanitize($flash_error); ?>">
+    data-flash-error="<?php echo sanitize($flash_error); ?>"
+    data-fees='<?php echo json_encode($class_fees_json_data); ?>'>
 </div>
 
 

@@ -155,7 +155,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $allowed_exts = ['jpg', 'jpeg', 'png', 'webp'];
 
         if (in_array($file_ext, $allowed_exts) && $_FILES['qr_code']['size'] <= 5 * 1024 * 1024) {
-            $upload_dir = dirname(dirname(dirname(__DIR__))) . '/uploads/qr_codes/';
+            $upload_dir = ROOT_PATH . 'uploads/qr_codes/';
             if (!is_dir($upload_dir)) {
                 mkdir($upload_dir, 0777, true);
             }

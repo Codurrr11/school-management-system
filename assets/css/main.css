@@ -7230,7 +7230,6 @@ body.dark-theme {
 /* --- Green Accents: Success, Stats, and Highlights --- */
 .badge-success,
 .bg-success,
-.text-success,
 .status-dot.bg-success,
 .teacher-status-badge.active {
   background: var(--color-green) !important;
@@ -7239,6 +7238,10 @@ body.dark-theme {
   padding: 2px;
   display: inline-flex;
   border-radius: 8px;
+}
+
+.text-success {
+  color: var(--color-green) !important;
 }
 
 .stat-value,
@@ -8054,5 +8057,55 @@ body.dark-theme .profile-tabs-nav .nav-link:hover {
 }
 body.dark-theme .profile-tabs-nav .nav-link.active {
   background: #0096ff !important;
+  color: #fff !important;
+}
+
+/* Student ID Card Printing Isolation Styles */
+@media print {
+  body.printing-student-idcard > *:not(#print-id-card-container) {
+    display: none !important;
+  }
+  body.printing-student-idcard #print-id-card-container {
+    display: block !important;
+    position: absolute !important;
+    left: 50% !important;
+    top: 50% !important;
+    transform: translate(-50%, -50%) !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+  body.printing-student-idcard .student-id-card {
+    box-shadow: none !important;
+    border: 1px solid var(--color-accent) !important;
+    background: linear-gradient(180deg, var(--color-accent) 0%, #111827 150px, #111827 100%) !important;
+    color: #fff !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+  body.printing-student-idcard .id-card-barcode-lines {
+    background: repeating-linear-gradient(90deg, #000 0px, #000 2px, #fff 2px, #fff 4px) !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+/* --- Fixes for badge, table column and action button icon color issues --- */
+.table-responsive td a.btn i.text-white {
+  color: inherit !important;
+}
+
+.table-responsive td a.btn:has(.ph-eye) {
+  color: var(--theme-primary) !important;
+}
+.table-responsive td a.btn:has(.ph-eye):hover {
+  background: var(--theme-primary) !important;
+  color: #fff !important;
+}
+
+.table-responsive td a.btn:has(.ph-cloud-arrow-down) {
+  color: var(--color-success) !important;
+}
+.table-responsive td a.btn:has(.ph-cloud-arrow-down):hover {
+  background: var(--color-success) !important;
   color: #fff !important;
 }
