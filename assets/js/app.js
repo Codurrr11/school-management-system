@@ -32,10 +32,12 @@ document.addEventListener("DOMContentLoaded", () => {
   function toggleSidebar() {
     if (isMobile()) {
       appLayout.classList.toggle("mobile-sidebar-active");
+      document.body.classList.toggle("mobile-sidebar-active");
       appLayout.classList.remove("sidebar-expanded"); // Ensure desktop state is clean on mobile
     } else {
       appLayout.classList.toggle("sidebar-expanded");
       appLayout.classList.remove("mobile-sidebar-active"); // Ensure mobile drawer is closed
+      document.body.classList.remove("mobile-sidebar-active");
 
       // Save state preference
       const isExpanded = appLayout.classList.contains("sidebar-expanded");
@@ -60,6 +62,7 @@ document.addEventListener("DOMContentLoaded", () => {
   if (sidebarOverlay) {
     sidebarOverlay.addEventListener("click", () => {
       appLayout.classList.remove("mobile-sidebar-active");
+      document.body.classList.remove("mobile-sidebar-active");
     });
   }
 
@@ -67,8 +70,22 @@ document.addEventListener("DOMContentLoaded", () => {
   if (sidebarCloseBtn) {
     sidebarCloseBtn.addEventListener("click", () => {
       appLayout.classList.remove("mobile-sidebar-active");
+      document.body.classList.remove("mobile-sidebar-active");
     });
   }
+
+  // Close mobile sidebar when clicking on navigation links
+  const mobileSidebarLinks = document.querySelectorAll(
+    ".app-sidebar .sidebar-nav-item:not([data-bs-toggle='collapse']), .app-sidebar .submenu-item"
+  );
+  mobileSidebarLinks.forEach((link) => {
+    link.addEventListener("click", () => {
+      if (isMobile()) {
+        appLayout.classList.remove("mobile-sidebar-active");
+        document.body.classList.remove("mobile-sidebar-active");
+      }
+    });
+  });
 
   /**
    * Dropdown Submenu Auto-Expand Sidebar Helper
@@ -145,19 +162,26 @@ document.addEventListener("DOMContentLoaded", () => {
    * Simple Table Search Filter Action (Dashboard Activities)
    */
   const searchInput = document.getElementById("activitiesSearchInput");
-  const tableBody = document.getElementById("activitiesTableBody");
-
-  if (searchInput && tableBody) {
+  if (searchInput) {
     searchInput.addEventListener("input", (e) => {
       const query = e.target.value.toLowerCase().trim();
-      const rows = tableBody.querySelectorAll("tr");
-
-      rows.forEach((row) => {
-        const text = row.textContent.toLowerCase();
-        if (text.includes(query)) {
-          row.style.display = "";
-        } else {
-          row.style.display = "none";
+      const tableBodies = [
+        document.getElementById("feesTableBody"),
+        document.getElementById("leadsTableBody"),
+        document.getElementById("expensesTableBody"),
+        document.getElementById("activitiesTableBody")
+      ];
+      tableBodies.forEach((tableBody) => {
+        if (tableBody) {
+          const rows = tableBody.querySelectorAll("tr");
+          rows.forEach((row) => {
+            const text = row.textContent.toLowerCase();
+            if (text.includes(query)) {
+              row.style.display = "";
+            } else {
+              row.style.display = "none";
+            }
+          });
         }
       });
     });
@@ -189,105 +213,109 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   /**
-   * Chart.js Configuration: Collected vs Outstanding Double Bar Chart
+   * Chart.js Configuration: Performance Bezier Line Chart (Summary)
    */
-  const chartCanvas = document.getElementById("incomeChart");
-  if (chartCanvas) {
-    const ctx = chartCanvas.getContext("2d");
-
-    // Create diagonal stripe pattern for Outstanding bar chart
-    const stripeCanvas = document.createElement("canvas");
-    const stripeCtx = stripeCanvas.getContext("2d");
-    stripeCanvas.width = 12;
-    stripeCanvas.height = 12;
-
-    // Draw diagonal blue lines
-    stripeCtx.strokeStyle = "#6366f1";
-    stripeCtx.lineWidth = 3;
-    stripeCtx.lineCap = "square";
-    stripeCtx.beginPath();
-    stripeCtx.moveTo(0, 12);
-    stripeCtx.lineTo(12, 0);
-    stripeCtx.stroke();
-
-    const lossPattern = ctx.createPattern(stripeCanvas, "repeat");
+  const summaryCanvas = document.getElementById("summaryChart");
+  if (summaryCanvas) {
+    const ctx = summaryCanvas.getContext("2d");
 
     // Dynamic chart data from database attributes if available
     const dashboardDataEl = document.getElementById("dashboard-data");
     let months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug"];
-    let collectedData = [
-      22000, 12000, 10000, 21000, 15000, 23000, 12000, 14000,
-    ];
-    let outstandingData = [
-      36000, 38000, 36000, 38000, 39000, 51000, 38000, 35000,
-    ];
+    let collectedData = [22000, 12000, 10000, 21000, 15000, 23000, 12000, 14000];
+    let outstandingData = [36000, 38000, 36000, 38000, 39000, 51000, 38000, 35000];
 
     if (dashboardDataEl) {
       try {
         const rawMonths = dashboardDataEl.getAttribute("data-chart-months");
-        const rawCollected = dashboardDataEl.getAttribute(
-          "data-chart-collected",
-        );
-        const rawOutstanding = dashboardDataEl.getAttribute(
-          "data-chart-outstanding",
-        );
+        const rawCollected = dashboardDataEl.getAttribute("data-chart-collected");
+        const rawOutstanding = dashboardDataEl.getAttribute("data-chart-outstanding");
 
         if (rawMonths) months = JSON.parse(rawMonths);
         if (rawCollected) collectedData = JSON.parse(rawCollected).map(Number);
-        if (rawOutstanding)
-          outstandingData = JSON.parse(rawOutstanding).map(Number);
+        if (rawOutstanding) outstandingData = JSON.parse(rawOutstanding).map(Number);
       } catch (e) {
         console.error("Error parsing dashboard dynamic chart data", e);
       }
-
-      // Update administrative expense progress bar width dynamically
-      const expensePercentage = dashboardDataEl.getAttribute(
-        "data-expense-percentage",
-      );
-      const progressFill = document.querySelector(
-        ".admin-expense-progress-fill",
-      );
-      if (progressFill && expensePercentage !== null) {
-        progressFill.style.width = expensePercentage + "%";
-      }
     }
 
-    new Chart(ctx, {
-      type: "bar",
+    window.summaryChartInstance = new Chart(ctx, {
+      type: "line",
       data: {
         labels: months,
         datasets: [
           {
             label: "Collected",
             data: collectedData,
-            backgroundColor: "#111827", // Dark charcoal/navy
-            borderWidth: 0,
-            borderRadius: 6,
-            borderSkipped: false,
-            barPercentage: 0.7,
-            categoryPercentage: 0.6,
+            borderColor: "#7c6af7",
+            backgroundColor: "rgba(124, 106, 247, 0.05)",
+            fill: true,
+            tension: 0.4,
+            borderWidth: 3,
+            pointStyle: "circle",
+            pointRadius: 5,
+            pointBackgroundColor: "#ffffff",
+            pointBorderColor: "#7c6af7",
+            pointBorderWidth: 2,
+            pointHoverRadius: 7,
+            pointHoverBackgroundColor: "#2D2D35",
+            pointHoverBorderColor: "#ffffff",
+            pointHoverBorderWidth: 2
           },
           {
             label: "Outstanding",
             data: outstandingData,
-            backgroundColor: lossPattern, // Stripe pattern
-            borderColor: "#6366f1",
-            borderWidth: 1.5,
-            borderRadius: 6,
-            borderSkipped: false,
-            barPercentage: 0.7,
-            categoryPercentage: 0.6,
-          },
-        ],
+            borderColor: "#8C8C9A",
+            backgroundColor: "transparent",
+            fill: false,
+            tension: 0.4,
+            borderWidth: 2,
+            borderDash: [5, 5],
+            pointStyle: "circle",
+            pointRadius: 5,
+            pointBackgroundColor: "#ffffff",
+            pointBorderColor: "#8C8C9A",
+            pointBorderWidth: 2,
+            pointHoverRadius: 7,
+            pointHoverBackgroundColor: "#2D2D35",
+            pointHoverBorderColor: "#ffffff",
+            pointHoverBorderWidth: 2
+          }
+        ]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
           legend: {
-            display: false, // We use our own HTML custom header legend
+            display: true,
+            position: "top",
+            labels: {
+              usePointStyle: true,
+              boxWidth: 8,
+              font: {
+                family: "Inter",
+                size: 11
+              }
+            }
           },
           tooltip: {
+            enabled: true,
+            backgroundColor: "#2D2D35",
+            titleColor: "#ffffff",
+            bodyColor: "#ffffff",
+            titleFont: {
+              family: "Inter",
+              size: 11,
+              weight: "bold"
+            },
+            bodyFont: {
+              family: "Inter",
+              size: 12
+            },
+            padding: 10,
+            cornerRadius: 15,
+            displayColors: false,
             callbacks: {
               label: function (context) {
                 let label = context.dataset.label || "";
@@ -298,51 +326,49 @@ document.addEventListener("DOMContentLoaded", () => {
                   label += new Intl.NumberFormat("en-IN", {
                     style: "currency",
                     currency: "INR",
-                    maximumFractionDigits: 0,
+                    maximumFractionDigits: 0
                   }).format(context.parsed.y);
                 }
                 return label;
-              },
-            },
-          },
+              }
+            }
+          }
         },
         scales: {
           y: {
             beginAtZero: true,
             grid: {
-              color: "#E5E7EB",
-              drawBorder: false,
+              color: "rgba(140, 140, 154, 0.1)",
+              drawBorder: false
             },
             ticks: {
-              color: "#9CA3AF",
+              color: "#8C8C9A",
               font: {
                 size: 10,
-                family: "Glegoo",
+                family: "Inter"
               },
               callback: function (value) {
-                if (value === 0) return "00";
+                if (value === 0) return "₹0";
                 return "₹" + value / 1000 + "k";
-              },
-            },
+              }
+            }
           },
           x: {
             grid: {
-              display: false,
+              display: false
             },
             ticks: {
-              color: "#9CA3AF",
+              color: "#8C8C9A",
               font: {
                 size: 10,
-                family: "Glegoo",
-              },
-            },
-          },
-        },
-      },
+                family: "Inter"
+              }
+            }
+          }
+        }
+      }
     });
-  }
-
-  /**
+  }  /**
    * Keyboard Shortcuts (Ctrl + K) to Focus Search Box
    */
   document.addEventListener("keydown", (e) => {
@@ -4101,8 +4127,9 @@ document.addEventListener("DOMContentLoaded", () => {
           });
       });
     });
+  }
 
-    // --- Profile Page Tab Selection and Avatar Preview ---
+  // --- Profile Page Tab Selection and Avatar Preview ---
     const activeTab = localStorage.getItem("profileActiveTab");
     if (activeTab) {
       const tabEl = document.querySelector(
@@ -4176,5 +4203,135 @@ document.addEventListener("DOMContentLoaded", () => {
         });
       }
     }
-  }
+
+    // --- Profile Page Delete Account Confirmation ---
+    const btnDeleteAccount = document.getElementById("btn-delete-account");
+    if (btnDeleteAccount) {
+      btnDeleteAccount.addEventListener("click", function () {
+        Swal.fire({
+          title: "Delete Account?",
+          text: "Are you sure you want to permanently delete your administrator account? This will log you out and erase your credentials.",
+          icon: "warning",
+          showCancelButton: true,
+          confirmButtonColor: "#DC2626",
+          cancelButtonColor: "#64748B",
+          confirmButtonText: "Yes, Delete it!",
+          cancelButtonText: "Cancel",
+          customClass: {
+            confirmButton: "swal-danger-btn-custom",
+            cancelButton: "swal-cancel-btn-custom",
+          },
+        }).then((result) => {
+          if (result.isConfirmed) {
+            const form = document.getElementById("deleteAccountForm");
+            if (form) {
+              form.submit();
+            }
+          }
+        });
+      });
+    }
+
+    // --- Academic Sessions Page Modals and Deletion Handlers ---
+    const editButtons = document.querySelectorAll('.edit-session-btn');
+    editButtons.forEach(btn => {
+      btn.addEventListener('click', function() {
+        const editId = document.getElementById('edit_id');
+        const editName = document.getElementById('edit_name');
+        const editStart = document.getElementById('edit_start_date');
+        const editEnd = document.getElementById('edit_end_date');
+        const checkbox = document.getElementById('edit_is_current');
+
+        if (editId) editId.value = this.dataset.id;
+        if (editName) editName.value = this.dataset.name;
+        if (editStart) editStart.value = this.dataset.start;
+        if (editEnd) editEnd.value = this.dataset.end;
+        
+        if (checkbox) {
+          const isCurrent = parseInt(this.dataset.current) === 1;
+          checkbox.checked = isCurrent;
+          
+          if (isCurrent) {
+            checkbox.setAttribute('disabled', 'disabled');
+            let hiddenInput = document.getElementById('hidden_edit_is_current');
+            if (!hiddenInput) {
+              hiddenInput = document.createElement('input');
+              hiddenInput.type = 'hidden';
+              hiddenInput.name = 'is_current';
+              hiddenInput.id = 'hidden_edit_is_current';
+              hiddenInput.value = '1';
+              checkbox.parentNode.appendChild(hiddenInput);
+            }
+          } else {
+            checkbox.removeAttribute('disabled');
+            const hiddenInput = document.getElementById('hidden_edit_is_current');
+            if (hiddenInput) {
+              hiddenInput.remove();
+            }
+          }
+        }
+      });
+    });
+
+    const deleteButtons = document.querySelectorAll('.delete-session-btn');
+    deleteButtons.forEach(btn => {
+      btn.addEventListener('click', function() {
+        const id = this.dataset.id;
+        const name = this.dataset.name;
+
+        Swal.fire({
+          title: 'Delete Session?',
+          text: `Are you sure you want to permanently delete the academic session "${name}"? This action cannot be undone.`,
+          icon: 'warning',
+          showCancelButton: true,
+          confirmButtonColor: '#DC2626',
+          cancelButtonColor: '#64748B',
+          confirmButtonText: 'Yes, Delete it!',
+          cancelButtonText: 'Cancel',
+          customClass: {
+            confirmButton: 'swal-danger-btn-custom',
+            cancelButton: 'swal-cancel-btn-custom'
+          }
+        }).then((result) => {
+          if (result.isConfirmed) {
+            const deleteId = document.getElementById('delete_id');
+            const deleteForm = document.getElementById('deleteSessionForm');
+            if (deleteId && deleteForm) {
+              deleteId.value = id;
+              deleteForm.submit();
+            }
+          }
+        });
+      });
+    });
+
+    // --- Academic Sessions Page Flash Alerts ---
+    const sessionsMeta = document.getElementById("sessions-page-data");
+    if (sessionsMeta) {
+      const flashSuccess = sessionsMeta.dataset.flashSuccess || "";
+      const flashError = sessionsMeta.dataset.flashError || "";
+      if (flashSuccess) {
+        Swal.fire({
+          toast: true,
+          position: "top-end",
+          icon: "success",
+          title: flashSuccess,
+          showConfirmButton: false,
+          timer: 4500,
+          timerProgressBar: true,
+          customClass: { popup: "swal-toast-custom" },
+        });
+      }
+      if (flashError) {
+        Swal.fire({
+          icon: "error",
+          title: "Error",
+          text: flashError,
+          confirmButtonColor: "#6366f1",
+          customClass: {
+            confirmButton: "swal-btn-custom",
+          },
+        });
+      }
+    }
 });

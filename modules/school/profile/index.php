@@ -70,6 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $stmt_up = $pdo->prepare("UPDATE users SET avatar = :avatar WHERE id = :id AND school_id = :school_id");
                 $stmt_up->execute([':avatar' => $new_filename, ':id' => $user_id, ':school_id' => $school_id]);
 
+                $_SESSION['avatar'] = $new_filename;
                 $_SESSION['flash_success'] = "Profile picture updated successfully!";
             } else {
                 $_SESSION['flash_error'] = "Failed to save uploaded file.";
@@ -180,6 +181,84 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: index.php');
         exit;
     }
+
+    if ($action === 'update_password') {
+        $current_password = $_POST['current_password'] ?? '';
+        $new_password = $_POST['new_password'] ?? '';
+        $confirm_password = $_POST['confirm_password'] ?? '';
+
+        if (empty($current_password) || empty($new_password) || empty($confirm_password)) {
+            $_SESSION['flash_error'] = "All password fields are required.";
+            header('Location: index.php');
+            exit;
+        }
+
+        // Fetch user from DB to verify current password
+        $stmt_pw = $pdo->prepare("SELECT password FROM users WHERE id = :id AND school_id = :school_id");
+        $stmt_pw->execute([':id' => $user_id, ':school_id' => $school_id]);
+        $pw_hash = $stmt_pw->fetchColumn();
+
+        if (!$pw_hash || !password_verify($current_password, $pw_hash)) {
+            $_SESSION['flash_error'] = "Incorrect current password.";
+            header('Location: index.php');
+            exit;
+        }
+
+        if ($new_password !== $confirm_password) {
+            $_SESSION['flash_error'] = "New password and confirmation password do not match.";
+            header('Location: index.php');
+            exit;
+        }
+
+        if (strlen($new_password) < 6) {
+            $_SESSION['flash_error'] = "New password must be at least 6 characters long.";
+            header('Location: index.php');
+            exit;
+        }
+
+        // Update password
+        $new_hash = password_hash($new_password, PASSWORD_BCRYPT);
+        $stmt_up = $pdo->prepare("UPDATE users SET password = :password WHERE id = :id AND school_id = :school_id");
+        $stmt_up->execute([
+            ':password' => $new_hash,
+            ':id' => $user_id,
+            ':school_id' => $school_id
+        ]);
+
+        $_SESSION['flash_success'] = "Password updated successfully!";
+        header('Location: index.php');
+        exit;
+    }
+
+    if ($action === 'delete_account') {
+        try {
+            $pdo->beginTransaction();
+            // Delete user
+            $stmt_del = $pdo->prepare("DELETE FROM users WHERE id = :id AND school_id = :school_id");
+            $stmt_del->execute([':id' => $user_id, ':school_id' => $school_id]);
+
+            $pdo->commit();
+            
+            // Clear session and redirect to login
+            $_SESSION = [];
+            if (ini_get("session.use_cookies")) {
+                $params = session_get_cookie_params();
+                setcookie(session_name(), '', time() - 42000,
+                    $params["path"], $params["domain"],
+                    $params["secure"], $params["httponly"]
+                );
+            }
+            session_destroy();
+            
+            header('Location: ' . BASE_URL . 'login.php');
+            exit;
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            $_SESSION['flash_error'] = "Failed to delete account: " . $e->getMessage();
+            header('Location: index.php');
+            exit;
+        }
+    }
 }
 
 // Generate token & handle flash
@@ -207,7 +286,7 @@ require_once '../../../includes/header.php';
 
 <div class="row">
     <div class="col-12">
-        <div class="card-premium p-0" style="overflow: hidden;">
+        <div class="glass-panel p-0" style="overflow: hidden;">
             <div class="row g-0">
                 <!-- Left Nav Tabs -->
                 <div class="col-md-3 border-end">
@@ -234,12 +313,12 @@ require_once '../../../includes/header.php';
                 </div>
 
                 <!-- Right Form Content -->
-                <div class="col-md-9 bg-white" style="border-top-right-radius: var(--border-radius-lg); border-bottom-right-radius: var(--border-radius-lg);">
+                <div class="col-md-9 profile-form-content">
                     <div class="card-body p-4 p-lg-5">
                         <div class="tab-content" id="profileTabsContent">
                             <!-- 1. Profile Picture -->
                             <div class="tab-pane fade show active" id="tab-avatar" role="tabpanel" aria-labelledby="tab-avatar-btn">
-                                <h5 class="fw-bold mb-1 font-heading text-dark">Profile Picture</h5>
+                                <h5 class="fw-bold mb-1 font-heading">Profile Picture</h5>
                                 <p class="text-xs text-muted mb-4">Upload a high-quality photo to update your dashboard avatar display.</p>
                                 
                                 <form action="index.php" method="POST" enctype="multipart/form-data">
@@ -279,7 +358,7 @@ require_once '../../../includes/header.php';
 
                             <!-- 2. About -->
                             <div class="tab-pane fade" id="tab-about" role="tabpanel" aria-labelledby="tab-about-btn">
-                                <h5 class="fw-bold mb-1 font-heading text-dark">About</h5>
+                                <h5 class="fw-bold mb-1 font-heading">About</h5>
                                 <p class="text-xs text-muted mb-4">Set your demographic preferences and write a short biography introduction.</p>
                                 
                                 <form action="index.php" method="POST">
@@ -291,15 +370,15 @@ require_once '../../../includes/header.php';
                                         <div class="d-flex align-items-center gap-4">
                                             <div class="form-check">
                                                 <input class="form-check-input" type="radio" name="gender" id="gender_male" value="male" <?php echo ($user['gender'] === 'male') ? 'checked' : ''; ?>>
-                                                <label class="form-check-label text-xs fw-semibold text-dark" for="gender_male">Male</label>
+                                                <label class="form-check-label text-xs fw-semibold" for="gender_male">Male</label>
                                             </div>
                                             <div class="form-check">
                                                 <input class="form-check-input" type="radio" name="gender" id="gender_female" value="female" <?php echo ($user['gender'] === 'female') ? 'checked' : ''; ?>>
-                                                <label class="form-check-label text-xs fw-semibold text-dark" for="gender_female">Female</label>
+                                                <label class="form-check-label text-xs fw-semibold" for="gender_female">Female</label>
                                             </div>
                                             <div class="form-check">
                                                 <input class="form-check-input" type="radio" name="gender" id="gender_other" value="other" <?php echo ($user['gender'] === 'other') ? 'checked' : ''; ?>>
-                                                <label class="form-check-label text-xs fw-semibold text-dark" for="gender_other">Other</label>
+                                                <label class="form-check-label text-xs fw-semibold" for="gender_other">Other</label>
                                             </div>
                                         </div>
                                     </div>
@@ -318,7 +397,7 @@ require_once '../../../includes/header.php';
 
                             <!-- 3. Contact Details -->
                             <div class="tab-pane fade" id="tab-contact" role="tabpanel" aria-labelledby="tab-contact-btn">
-                                <h5 class="fw-bold mb-1 font-heading text-dark">Contact Details</h5>
+                                <h5 class="fw-bold mb-1 font-heading">Contact Details</h5>
                                 <p class="text-xs text-muted mb-4">Manage your administrative name, contact phone numbers, online link, and office location address.</p>
                                 
                                 <form action="index.php" method="POST">
@@ -393,106 +472,101 @@ require_once '../../../includes/header.php';
 
                             <!-- 4. Update Password -->
                             <div class="tab-pane fade" id="tab-password" role="tabpanel" aria-labelledby="tab-password-btn">
-                                <h5 class="fw-bold mb-1 font-heading text-dark">Update Password</h5>
+                                <h5 class="fw-bold mb-1 font-heading">Update Password</h5>
                                 <p class="text-xs text-muted mb-4">Set a new secure password for your administrator profile credentials.</p>
                                 
-                                <div class="alert alert-warning border-0 shadow-sm d-flex align-items-center gap-3 p-3 mb-4">
-                                    <i class="ph-bold ph-warning-circle fs-4 text-warning"></i>
-                                    <div>
-                                        <strong class="d-block mb-1 text-dark" style="font-size: 13px;">Demo Account Restriction</strong>
-                                        <span class="text-xs text-muted">Password can not be updated in demo account.</span>
-                                    </div>
-                                </div>
-                                
-                                <form onsubmit="return false;">
+                                <form action="index.php" method="POST">
+                                    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                                    <input type="hidden" name="action" value="update_password">
+
                                     <div class="mb-3">
-                                        <label class="form-label-admin">Current Password</label>
-                                        <input type="password" class="form-control-admin" disabled placeholder="••••••••">
+                                        <label for="current_password" class="form-label-admin">Current Password <span class="text-danger">*</span></label>
+                                        <input type="password" id="current_password" name="current_password" class="form-control-admin" required placeholder="••••••••">
                                     </div>
                                     <div class="row g-3 mb-3">
                                         <div class="col-md-6">
-                                            <label class="form-label-admin">New Password</label>
-                                            <input type="password" class="form-control-admin" disabled placeholder="••••••••">
+                                            <label for="new_password" class="form-label-admin">New Password <span class="text-danger">*</span></label>
+                                            <input type="password" id="new_password" name="new_password" class="form-control-admin" required placeholder="••••••••">
                                         </div>
                                         <div class="col-md-6">
-                                            <label class="form-label-admin">Confirm New Password</label>
-                                            <input type="password" class="form-control-admin" disabled placeholder="••••••••">
+                                            <label for="confirm_password" class="form-label-admin">Confirm New Password <span class="text-danger">*</span></label>
+                                            <input type="password" id="confirm_password" name="confirm_password" class="form-control-admin" required placeholder="••••••••">
                                         </div>
                                     </div>
                                     <hr class="my-4">
                                     <div class="d-flex justify-content-end">
-                                        <button type="button" class="btn btn-secondary px-4" disabled>Update Password</button>
+                                        <button type="submit" class="btn btn-primary px-4">Update Password</button>
                                     </div>
                                 </form>
                             </div>
 
                             <!-- 5. Support Section -->
                             <div class="tab-pane fade" id="tab-support" role="tabpanel" aria-labelledby="tab-support-btn">
-                                <h5 class="fw-bold mb-1 font-heading text-dark">Support Section</h5>
+                                <h5 class="fw-bold mb-1 font-heading">Support Section</h5>
                                 <p class="text-xs text-muted mb-4">Get in touch with our Sales & Support representatives for system help and billing assistance.</p>
                                 
                                 <div class="row g-3">
                                     <!-- Sales Helpline -->
                                     <div class="col-md-6">
-                                        <div class="p-3 border rounded-3 bg-light d-flex align-items-center gap-3">
+                                        <div class="p-3 border rounded-3 support-info-box d-flex align-items-center gap-3">
                                             <div class="icon-circle-md bg-primary-light text-primary flex-shrink-0">
                                                 <i class="ph-bold ph-phone fs-5"></i>
                                             </div>
                                             <div class="flex-grow-1">
                                                 <span class="text-xxs text-muted d-block uppercase fw-bold" style="letter-spacing: 0.5px;">Sales & Billing</span>
-                                                <a href="tel:+919999988888" class="fw-semibold text-sm text-decoration-none text-dark hover-primary">+91 99999 88888</a>
+                                                <a href="tel:+919999988888" class="fw-semibold text-sm text-decoration-none hover-primary">+91 99999 88888</a>
                                             </div>
                                         </div>
                                     </div>
                                     
                                     <!-- Support Helpline -->
                                     <div class="col-md-6">
-                                        <div class="p-3 border rounded-3 bg-light d-flex align-items-center gap-3">
+                                        <div class="p-3 border rounded-3 support-info-box d-flex align-items-center gap-3">
                                             <div class="icon-circle-md bg-success-light text-success flex-shrink-0">
                                                 <i class="ph-bold ph-phone fs-5"></i>
                                             </div>
                                             <div class="flex-grow-1">
                                                 <span class="text-xxs text-muted d-block uppercase fw-bold" style="letter-spacing: 0.5px;">Support Helpline</span>
-                                                <a href="tel:+918888877777" class="fw-semibold text-sm text-decoration-none text-dark hover-primary">+91 88888 77777</a>
+                                                <a href="tel:+918888877777" class="fw-semibold text-sm text-decoration-none hover-primary">+91 88888 77777</a>
                                             </div>
                                         </div>
                                     </div>
                                     
                                     <!-- WhatsApp Sales -->
                                     <div class="col-md-6">
-                                        <div class="p-3 border rounded-3 bg-light d-flex align-items-center gap-3">
+                                        <div class="p-3 border rounded-3 support-info-box d-flex align-items-center gap-3">
                                             <div class="icon-circle-md bg-success-light text-success flex-shrink-0">
                                                 <i class="ph-bold ph-whatsapp-logo fs-5"></i>
                                             </div>
                                             <div class="flex-grow-1">
                                                 <span class="text-xxs text-muted d-block uppercase fw-bold" style="letter-spacing: 0.5px;">Chat with Sales</span>
-                                                <a href="https://wa.me/919999988888" target="_blank" rel="noopener noreferrer" class="fw-semibold text-sm text-decoration-none text-dark hover-primary">Open Chat (Sales)</a>
+                                                <a href="https://wa.me/919999988888" target="_blank" rel="noopener noreferrer" class="fw-semibold text-sm text-decoration-none hover-primary">Open Chat (Sales)</a>
                                             </div>
                                         </div>
                                     </div>
                                     
                                     <!-- WhatsApp Support -->
                                     <div class="col-md-6">
-                                        <div class="p-3 border rounded-3 bg-light d-flex align-items-center gap-3">
+                                        <div class="p-3 border rounded-3 support-info-box d-flex align-items-center gap-3">
                                             <div class="icon-circle-md bg-success-light text-success flex-shrink-0">
                                                 <i class="ph-bold ph-whatsapp-logo fs-5"></i>
                                             </div>
                                             <div class="flex-grow-1">
                                                 <span class="text-xxs text-muted d-block uppercase fw-bold" style="letter-spacing: 0.5px;">Chat with Support</span>
-                                                <a href="https://wa.me/918888877777" target="_blank" rel="noopener noreferrer" class="fw-semibold text-sm text-decoration-none text-dark hover-primary">Open Chat (Support)</a>
+                                                <a href="https://wa.me/918888877777" target="_blank" rel="noopener noreferrer" class="fw-semibold text-sm text-decoration-none hover-primary">Open Chat (Support)</a>
                                             </div>
                                         </div>
                                     </div>
                                     
                                     <!-- Support Email -->
                                     <div class="col-md-12">
-                                        <div class="p-3 border rounded-3 bg-light d-flex align-items-center gap-3">
+                                        <div class="p-3 border rounded-3 support-info-box d-flex align-items-center gap-3">
                                             <div class="icon-circle-md bg-indigo-light text-indigo flex-shrink-0">
                                                 <i class="ph-bold ph-envelope fs-5"></i>
                                             </div>
                                             <div class="flex-grow-1">
                                                 <span class="text-xxs text-muted d-block uppercase fw-bold" style="letter-spacing: 0.5px;">Support Email Desk</span>
-                                                <a href="mailto:support@schoolsaas.com" class="fw-semibold text-sm text-decoration-none text-dark hover-primary">support@schoolsaas.com</a>
+                                                <a href="mailto:support@schoolsaas.com" class="fw-semibold text-sm text-decoration-none hover-primary">support@schoolsaas.com</a>
                                             </div>
                                         </div>
                                     </div>
@@ -507,8 +581,8 @@ require_once '../../../includes/header.php';
                                 <div class="alert alert-danger border-0 shadow-sm d-flex align-items-center gap-3 p-3 mb-4">
                                     <i class="ph-bold ph-warning-circle fs-4 text-danger"></i>
                                     <div>
-                                        <strong class="d-block mb-1 text-dark" style="font-size: 13px;">Danger Zone Restriction</strong>
-                                        <span class="text-xs text-danger">Account can not be deleted in demo account.</span>
+                                        <strong class="d-block mb-1" style="font-size: 13px;">Danger Zone</strong>
+                                        <span class="text-xs text-danger">Permanently delete your account. This action is irreversible.</span>
                                     </div>
                                 </div>
                                 
@@ -518,8 +592,12 @@ require_once '../../../includes/header.php';
                                 
                                 <hr class="my-4">
                                 <div class="d-flex justify-content-end">
-                                    <button type="button" class="btn btn-danger px-4" disabled>Delete My Account</button>
+                                    <button type="button" class="btn btn-danger px-4" id="btn-delete-account">Delete My Account</button>
                                 </div>
+                                <form id="deleteAccountForm" action="index.php" method="POST" style="display:none;">
+                                    <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
+                                    <input type="hidden" name="action" value="delete_account">
+                                </form>
                             </div>
                         </div>
                     </div>

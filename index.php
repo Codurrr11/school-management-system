@@ -10,30 +10,19 @@ require_once 'includes/header.php';
 $role_name = $_SESSION['role_name'] ?? '';
 ?>
 
+<?php if ($role_name === 'super_admin'): ?>
 <!-- Welcome Banner Section -->
 <div class="row align-items-center mb-4 g-3 welcome-header">
     <div class="col-12">
         <h2 class="mb-1 font-heading fw-extrabold">
-            <?php
-            if ($role_name === 'super_admin') {
-                echo 'Platform Administration';
-            } else {
-                echo sanitize($_SESSION['school_name'] ?? 'School Dashboard');
-            }
-            ?>
+            Platform Administration
         </h2>
         <p class="text-xs text-muted mb-0">
             Good morning, <?php echo sanitize($_SESSION['first_name'] ?? 'Admin'); ?>.
-            <?php if ($role_name === 'super_admin'): ?>
-                Welcome to the SaaS management portal. You can manage registered schools, plans, and check platform performance.
-            <?php else: ?>
-                Stay on top of your school's tasks, fee collections, and student status.
-            <?php endif; ?>
+            Welcome to the SaaS management portal. You can manage registered schools, plans, and check platform performance.
         </p>
     </div>
 </div>
-
-<?php if ($role_name === 'super_admin'): ?>
     <?php
     // Fetch Super Admin Stats
     $school_count_stmt = $pdo->query("SELECT COUNT(*) FROM schools WHERE deleted_at IS NULL");
@@ -143,6 +132,16 @@ $role_name = $_SESSION['role_name'] ?? '';
     $stmt_teach->execute([':sid' => $school_id]);
     $total_teachers = (int)$stmt_teach->fetchColumn();
 
+    // 2b. Total Parents
+    $stmt_parents = $pdo->prepare("SELECT COUNT(*) FROM parents WHERE school_id = :sid AND deleted_at IS NULL");
+    $stmt_parents->execute([':sid' => $school_id]);
+    $total_parents = (int)$stmt_parents->fetchColumn();
+
+    // 2c. Total Leads / Inquiries
+    $stmt_leads = $pdo->prepare("SELECT COUNT(*) FROM leads WHERE school_id = :sid AND deleted_at IS NULL");
+    $stmt_leads->execute([':sid' => $school_id]);
+    $total_leads = (int)$stmt_leads->fetchColumn();
+
     // 3. Fees totals
     // Total Fee Assigned (Revenue)
     $stmt_assigned = $pdo->prepare("
@@ -166,6 +165,9 @@ $role_name = $_SESSION['role_name'] ?? '';
 
     // Total Outstanding Dues
     $total_fees_outstanding = max(0.0, $total_fees_assigned - $total_fees_collected);
+
+    // Fee Collection Progress Percentage
+    $fee_target_percent = $total_fees_assigned > 0 ? round(($total_fees_collected / $total_fees_assigned) * 100, 1) : 0;
 
     // 4. Fee heads (Tuition, Transport, Hostel)
     $stmt_head = $pdo->prepare("
@@ -207,7 +209,91 @@ $role_name = $_SESSION['role_name'] ?? '';
     $stmt_recent->execute([':sid' => $school_id]);
     $recent_payments = $stmt_recent->fetchAll();
 
+    // 6b. Recent Leads / Inquiries (latest 5 leads)
+    $stmt_recent_leads = $pdo->prepare("
+        SELECT l.*, c.name AS class_name 
+        FROM leads l 
+        LEFT JOIN classes c ON l.class_id = c.id 
+        WHERE l.school_id = :sid AND l.deleted_at IS NULL 
+        ORDER BY l.id DESC 
+        LIMIT 5
+    ");
+    $stmt_recent_leads->execute([':sid' => $school_id]);
+    $recent_leads = $stmt_recent_leads->fetchAll();
+
+    // 6c. Recent Expenses (latest 5 expenses)
+    $stmt_recent_expenses = $pdo->prepare("
+        SELECT * 
+        FROM expenses 
+        WHERE school_id = :sid AND deleted_at IS NULL 
+        ORDER BY id DESC 
+        LIMIT 5
+    ");
+    $stmt_recent_expenses->execute([':sid' => $school_id]);
+    $recent_expenses = $stmt_recent_expenses->fetchAll();
+
+    // 6d. Leads Status Breakdown (for Leads Pipeline Chart)
+    $stmt_lead_status = $pdo->prepare("
+        SELECT status, COUNT(*) AS count 
+        FROM leads 
+        WHERE school_id = :sid AND deleted_at IS NULL 
+        GROUP BY status
+    ");
+    $stmt_lead_status->execute([':sid' => $school_id]);
+    $lead_statuses_data = [];
+    while ($row = $stmt_lead_status->fetch()) {
+        $status_name = $row['status'] ?: 'Interested';
+        $lead_statuses_data[$status_name] = (int)$row['count'];
+    }
+    $lead_pipeline_labels = array_keys($lead_statuses_data);
+    $lead_pipeline_counts = array_values($lead_statuses_data);
+
+    // 6e. Lead Sources Breakdown (for lead sources list)
+    $stmt_lead_source = $pdo->prepare("
+        SELECT COALESCE(source, 'Direct') AS source_name, COUNT(*) AS count
+        FROM leads
+        WHERE school_id = :sid AND deleted_at IS NULL
+        GROUP BY source
+    ");
+    $stmt_lead_source->execute([':sid' => $school_id]);
+    $lead_sources_data = [];
+    while ($row = $stmt_lead_source->fetch()) {
+        $lead_sources_data[$row['source_name']] = (int)$row['count'];
+    }
+
+    // 6f. Student Status Breakdown (active, suspended, passed, dropped)
+    $stmt_stud_status = $pdo->prepare("
+        SELECT status, COUNT(*) AS count
+        FROM students
+        WHERE school_id = :sid AND deleted_at IS NULL
+        GROUP BY status
+    ");
+    $stmt_stud_status->execute([':sid' => $school_id]);
+    $student_statuses = ['active' => 0, 'suspended' => 0, 'passed' => 0, 'dropped' => 0, 'inactive' => 0];
+    while ($row = $stmt_stud_status->fetch()) {
+        $student_statuses[$row['status']] = (int)$row['count'];
+    }
+
+    // 6g. RTE vs Non-RTE student counts
+    $stmt_rte = $pdo->prepare("
+        SELECT is_rte, COUNT(*) AS count
+        FROM students
+        WHERE school_id = :sid AND deleted_at IS NULL
+        GROUP BY is_rte
+    ");
+    $stmt_rte->execute([':sid' => $school_id]);
+    $rte_count = 0;
+    $non_rte_count = 0;
+    while ($row = $stmt_rte->fetch()) {
+        if ($row['is_rte'] === 'yes') {
+            $rte_count = (int)$row['count'];
+        } else {
+            $non_rte_count = (int)$row['count'];
+        }
+    }
+
     // 7. Dynamic Monthly chart data
+
     $stmt_chart_coll = $pdo->prepare("
         SELECT MONTH(payment_date) AS m, SUM(amount_paid) AS total 
         FROM fee_payments 
@@ -246,6 +332,8 @@ $role_name = $_SESSION['role_name'] ?? '';
          data-chart-collected='<?php echo json_encode($chart_collected); ?>'
          data-chart-outstanding='<?php echo json_encode($chart_outstanding); ?>'
          data-expense-percentage="<?php echo $expense_percentage; ?>"
+         data-lead-labels='<?php echo json_encode($lead_pipeline_labels); ?>'
+         data-lead-counts='<?php echo json_encode($lead_pipeline_counts); ?>'
          style="display: none;">
     </div>
     <!-- Main Dashboard Glassmorphism Container with Background Blobs -->
@@ -253,375 +341,283 @@ $role_name = $_SESSION['role_name'] ?? '';
     <div class="glass-bg-blob blob-success"></div>
 
     <div class="dashboard-glass-container">
-        
-        <!-- Row 1: Horizontal Metric Cards -->
-        <div class="row g-4 mb-4">
-            <!-- Metric 1: Total Students (Accent Color Background) -->
-            <div class="col-xl-3 col-sm-6">
-                <div class="metric-card metric-card-accent">
-                    <div class="metric-top">
-                        <span class="metric-label text-white-50">Total Students</span>
-                        <div class="metric-icon-bg bg-white-20 text-white">
-                            <i class="ti ti-users"></i>
-                        </div>
-                    </div>
-                    <div class="metric-bottom-content">
-                        <div class="metric-value font-secondary text-white"><?php echo number_format($total_students); ?></div>
-                        <div class="metric-trend text-white-50"><i class="ti ti-arrow-up-right"></i> 5.2% this session</div>
-                    </div>
+        <!-- Dashboard Sub-Header Greeting & Quick Actions -->
+        <div class="dashboard-sub-header">
+            <div class="welcome-msg-block d-flex align-items-center gap-3">
+                <?php
+                $user_avatar_url = "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100";
+                if (!empty($_SESSION['avatar'])) {
+                    $avatar_path = ROOT_PATH . "uploads/profile/" . $_SESSION['avatar'];
+                    if (file_exists($avatar_path)) {
+                        $user_avatar_url = BASE_URL . "uploads/profile/" . $_SESSION['avatar'];
+                    }
+                }
+                ?>
+                <img src="<?php echo $user_avatar_url; ?>" alt="User Avatar" class="rounded-circle border border-2 border-white shadow-sm" style="width: 50px; height: 50px; object-fit: cover;">
+                <div>
+                    <h1 class="mb-0">Good morning, <?php echo htmlspecialchars($_SESSION['first_name'] ?? 'Admin'); ?>!</h1>
+                    <p class="mb-0">Let's make this day productive at <?php echo htmlspecialchars($_SESSION['school_name'] ?? 'Brighton School Kota'); ?>.</p>
                 </div>
             </div>
-
-            <!-- Metric 2: Active Teachers -->
-            <div class="col-xl-3 col-sm-6">
-                <div class="metric-card">
-                    <div class="metric-top">
-                        <span class="metric-label">Active Teachers</span>
-                        <div class="metric-icon-bg">
-                            <i class="ti ti-presentation"></i>
-                        </div>
-                    </div>
-                    <div class="metric-bottom-content">
-                        <div class="metric-value font-secondary"><?php echo number_format($total_teachers); ?></div>
-                        <div class="metric-trend"><i class="ti ti-circle-check text-success"></i> Status: Active</div>
-                    </div>
+            <div class="welcome-stats-block">
+                <div class="stat-pill-item">
+                    <span class="stat-pill-label">Tasks done</span>
+                    <span class="stat-pill-value">
+                        <?php echo number_format($total_students); ?>
+                        <i class="ti ti-arrow-up-right"></i>
+                    </span>
                 </div>
-            </div>
-
-            <!-- Metric 3: Fee Collected -->
-            <div class="col-xl-3 col-sm-6">
-                <div class="metric-card">
-                    <div class="metric-top">
-                        <span class="metric-label">Collected Fees</span>
-                        <div class="metric-icon-bg text-success">
-                            <i class="ti ti-coins"></i>
-                        </div>
-                    </div>
-                    <div class="metric-bottom-content">
-                        <div class="metric-value font-secondary">₹<?php echo number_format($total_fees_collected); ?></div>
-                        <div class="metric-trend text-success"><i class="ti ti-arrow-up-right"></i> 12% vs last month</div>
-                    </div>
+                <div class="stat-pill-item">
+                    <span class="stat-pill-label">Hours saved</span>
+                    <span class="stat-pill-value">
+                        <?php echo $fee_target_percent; ?>%
+                        <i class="ti ti-arrow-up-right"></i>
+                    </span>
                 </div>
-            </div>
-
-            <!-- Metric 4: Outstanding Fees -->
-            <div class="col-xl-3 col-sm-6">
-                <div class="metric-card">
-                    <div class="metric-top">
-                        <span class="metric-label">Outstanding Dues</span>
-                        <div class="metric-icon-bg text-danger">
-                            <i class="ti ti-alert-circle"></i>
-                        </div>
-                    </div>
-                    <div class="metric-bottom-content">
-                        <div class="metric-value font-secondary">₹<?php echo number_format($total_fees_outstanding); ?></div>
-                        <div class="metric-trend text-danger"><i class="ti ti-clock"></i> Notices sent</div>
-                    </div>
-                </div>
+                <a href="<?php echo BASE_URL; ?>modules/school/students/index.php" class="btn-primary-pill">
+                    <i class="ti ti-plus"></i> Add Student
+                </a>
             </div>
         </div>
 
-        <!-- Row 2: Fee Collection Chart & Total Fee Revenue / Heads -->
-        <div class="row g-4 mb-4">
-            <!-- Left Column: Fee Collection Chart (Wide 8-col grid) -->
-            <div class="col-xl-8 col-lg-7">
-                <div class="card-premium">
-                    <div class="card-header">
-                        <div>
-                            <h6 class="font-primary fw-bold text-sm">Fee Collection</h6>
-                            <span class="card-subtitle text-xxs text-muted">Collected vs Outstanding dues in current term</span>
-                        </div>
-                        <div class="chart-legend">
-                            <div class="legend-item">
-                                <span class="legend-color legend-collected"></span>
-                                <span>Collected</span>
-                            </div>
-                            <div class="legend-item">
-                                <span class="legend-color legend-outstanding"></span>
-                                <span>Outstanding</span>
-                            </div>
-                        </div>
+        <!-- Main Content Grid -->
+        <div class="container-fluid px-3">
+            <div class="row g-4 mb-4">
+                <!-- Col 1: Virtual Assistant Card -->
+                <div class="col-xl-5 col-lg-6">
+                    <!-- Outer Tabs Switcher -->
+                    <div class="assistant-tabs" id="assistantTabs" role="tablist">
+                        <button class="assistant-tab-btn" id="help-tab" type="button" title="Help">
+                            <i class="ti ti-help-circle fs-5"></i>
+                        </button>
+                        <button class="assistant-tab-btn active" id="chat-tab" type="button" title="Virtual Assistant">
+                            <i class="ti ti-message-2 fs-5"></i>
+                        </button>
+                        <button class="assistant-tab-btn" id="settings-tab" type="button" title="Settings">
+                            <i class="ti ti-settings fs-5"></i>
+                        </button>
                     </div>
-                    <div class="card-body">
-                        <div class="dashboard-chart-wrapper">
-                            <!-- Chart.js canvas render viewport -->
-                            <canvas id="incomeChart"></canvas>
+
+                    <!-- Main Glassmorphic Assistant Card -->
+                    <div class="glass-panel" style="min-height: 350px;">
+                        <!-- Virtual assistant avatar in the top right corner -->
+                        <div class="chat-avatar-wrapper">
+                            <img src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=100" alt="Assistant Avatar" style="width: 100%; height: 100%; object-fit: cover;">
+                        </div>
+
+                        <div class="chat-body mt-4">
+                            <div class="chat-bubble">
+                                Namaste! Welcome to Brighton School Kota dashboard. How can I assist you with CBSE classes, fee payments, or session settings today?
+                                <span class="time">9:32 AM</span>
+                            </div>
+                        </div>
+
+                        <!-- Input line at the bottom -->
+                        <div class="chat-input-wrapper">
+                            <input type="text" placeholder="Write a message...">
+                            <div class="chat-input-actions">
+                                <i class="ti ti-paperclip" title="Attach file"></i>
+                                <i class="ti ti-mood-smile" title="Emojis"></i>
+                                <i class="ti ti-microphone" title="Voice message"></i>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Right Column: Total Fee Revenue & Heads (Vertical 4-col grid) -->
-            <div class="col-xl-4 col-lg-5">
-                <div class="card-premium">
-                    <div class="card-body d-flex flex-column justify-content-between h-100">
-                        <!-- Balance Top Info -->
-                        <div class="balance-top">
+                <!-- Col 2: My Activity Timeline Card -->
+                <div class="col-xl-7 col-lg-6">
+                    <div class="glass-panel" style="min-height: 350px;">
+                        <div class="timeline-header">
                             <div>
-                                <span class="balance-label">Total Fee Revenue</span>
-                                <div class="balance-value font-secondary mb-1">₹<?php echo number_format($total_fees_assigned, 2); ?></div>
+                                <h5 class="fw-bold mb-0" style="font-family: var(--font-heading); color: #2D2D35;">My activity</h5>
+                                <span class="text-xs text-muted">What is waiting for you today</span>
                             </div>
-                            <div class="currency-selector" title="Select Currency">
-                                <!-- Custom Inline Indian Flag SVG -->
-                                <svg class="currency-flag" viewBox="0 0 16 10" width="16" height="10" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <rect width="16" height="3.33" fill="#FF9933" />
-                                    <rect y="3.33" width="16" height="3.33" fill="#FFFFFF" />
-                                    <rect y="6.66" width="16" height="3.34" fill="#138808" />
-                                    <circle cx="8" cy="5" r="1.1" fill="none" stroke="#000080" stroke-width="0.3" />
-                                    <line x1="8" y1="3.9" x2="8" y2="6.1" stroke="#000080" stroke-width="0.2" />
-                                    <line x1="6.9" y1="5" x2="9.1" y2="5" stroke="#000080" stroke-width="0.2" />
-                                </svg>
-                                <span>INR</span>
-                                <i class="ti ti-chevron-down ms-0.5"></i>
-                            </div>
-                        </div>
-
-                        <!-- Balance Trend -->
-                        <div class="mb-3">
-                            <span class="trend-badge trend-up mb-0">
-                                <i class="ti ti-arrow-up-right"></i> 7.8%
-                            </span>
-                            <span class="text-xxs text-muted ms-1">than last academic term</span>
-                        </div>
-
-                        <!-- Quick Action Buttons -->
-                        <div class="balance-actions mb-4">
-                            <button class="btn-balance-action btn-balance-action-primary me-2">
-                                <i class="ti ti-coins"></i> Collect Fee
-                            </button>
-                            <button class="btn-balance-action btn-balance-action-secondary">
-                                <i class="ti ti-circle-plus"></i> Record Expense
+                            <button class="circle-btn-util" title="Calendar">
+                                <i class="ti ti-calendar fs-5"></i>
                             </button>
                         </div>
 
-                        <!-- Wallets Subsection -->
-                        <div>
-                            <div class="wallets-title mb-2">
-                                Fee Heads <span class="text-muted">| Primary collections</span>
+                        <!-- Dotted Vertical Grid Lines Timeline Slider -->
+                        <div class="timeline-grid">
+                            <!-- Hour Column 07:00 -->
+                            <div class="timeline-hour-col">
+                                <span class="timeline-hour-label">07:00</span>
+                                <div class="timeline-dotted-line"></div>
                             </div>
-                            <div class="wallets-list gap-2 d-flex flex-column">
-                                <!-- Tuition Fee -->
-                                <div class="wallet-item">
-                                    <div class="wallet-left">
-                                        <div class="wallet-flag-wrapper">
-                                            <i class="ti ti-school text-primary"></i>
-                                        </div>
-                                        <div class="wallet-details">
-                                            <span class="wallet-name">Tuition Fee</span>
-                                            <span class="wallet-limit">Primary school collections</span>
-                                        </div>
-                                    </div>
-                                    <div class="wallet-right">
-                                        <span class="wallet-val">₹<?php echo number_format($tuition_collected, 2); ?></span>
-                                        <span class="wallet-status active"><i class="ph-fill ph-circle wallet-status-dot"></i> Active</span>
-                                    </div>
-                                </div>
+                            <!-- Hour Column 08:00 -->
+                            <div class="timeline-hour-col">
+                                <span class="timeline-hour-label">08:00</span>
+                                <div class="timeline-dotted-line"></div>
+                            </div>
+                            <!-- Hour Column 09:00 -->
+                            <div class="timeline-hour-col">
+                                <span class="timeline-hour-label">09:00</span>
+                                <div class="timeline-dotted-line"></div>
+                            </div>
+                            <!-- Hour Column 10:00 -->
+                            <div class="timeline-hour-col">
+                                <span class="timeline-hour-label">10:00</span>
+                                <div class="timeline-dotted-line"></div>
+                            </div>
+                            <!-- Hour Column 11:00 -->
+                            <div class="timeline-hour-col">
+                                <span class="timeline-hour-label">11:00</span>
+                                <div class="timeline-dotted-line"></div>
+                            </div>
+                            <!-- Hour Column 12:00 -->
+                            <div class="timeline-hour-col" style="font-weight: bold; color: #2D2D35;">
+                                <span class="timeline-hour-label" style="color: #2D2D35;">12:00</span>
+                                <div class="timeline-dotted-line"></div>
+                            </div>
+                            <!-- Hour Column 01:00 -->
+                            <div class="timeline-hour-col">
+                                <span class="timeline-hour-label">01:00</span>
+                                <div class="timeline-dotted-line"></div>
+                            </div>
+                            <!-- Hour Column 02:00 -->
+                            <div class="timeline-hour-col">
+                                <span class="timeline-hour-label">02:00</span>
+                                <div class="timeline-dotted-line"></div>
+                            </div>
 
-                                <!-- Transport Fee -->
-                                <div class="wallet-item">
-                                    <div class="wallet-left">
-                                        <div class="wallet-flag-wrapper">
-                                            <i class="ti ti-bus text-success"></i>
-                                        </div>
-                                        <div class="wallet-details">
-                                            <span class="wallet-name">Transport Fee</span>
-                                            <span class="wallet-limit">Bus route collections</span>
-                                        </div>
-                                    </div>
-                                    <div class="wallet-right">
-                                        <span class="wallet-val">₹<?php echo number_format($transport_collected, 2); ?></span>
-                                        <span class="wallet-status active"><i class="ph-fill ph-circle wallet-status-dot"></i> Active</span>
-                                    </div>
+                            <!-- Pill Event Blocks -->
+                            <!-- Lime green: Staff Meeting -->
+                            <div class="timeline-event-block event-lime">
+                                <div class="event-info">
+                                    <span class="event-title">Staff Meeting</span>
+                                    <span class="event-subtitle">Brighton School Staff Room</span>
                                 </div>
-
-                                <!-- Hostel Fee -->
-                                <div class="wallet-item">
-                                    <div class="wallet-left">
-                                        <div class="wallet-flag-wrapper">
-                                            <i class="ti ti-home text-warning"></i>
-                                        </div>
-                                        <div class="wallet-details">
-                                            <span class="wallet-name">Hostel Fee</span>
-                                            <span class="wallet-limit">Residential block dues</span>
-                                        </div>
-                                    </div>
-                                    <div class="wallet-right">
-                                        <span class="wallet-val">₹<?php echo number_format($hostel_collected, 2); ?></span>
-                                        <span class="wallet-status active"><i class="ph-fill ph-circle wallet-status-dot"></i> Active</span>
-                                    </div>
+                                <div class="event-avatars">
+                                    <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=60" alt="Avatar" class="event-avatar-img">
+                                    <span class="event-avatar-more">+4</span>
                                 </div>
                             </div>
+
+                            <!-- Blue-grey: CBSE Syllabus review -->
+                            <div class="timeline-event-block event-blue-grey">
+                                <div class="event-info">
+                                    <span class="event-title">CBSE syllabus review</span>
+                                    <span class="event-subtitle">Conference Room</span>
+                                </div>
+                                <div class="event-avatars">
+                                    <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=60" alt="Avatar" class="event-avatar-img">
+                                    <span class="event-avatar-more">+8</span>
+                                </div>
+                            </div>
+
+                            <!-- Lavender: Chai & Samosa break -->
+                            <div class="timeline-event-block event-lavender">
+                                <div class="event-info">
+                                    <span class="event-title">Chai & Samosa break</span>
+                                    <span class="event-subtitle">Canteen</span>
+                                </div>
+                            </div>
+
+                            <!-- Current time tracker indicator vertical black line -->
+                            <div class="timeline-current-indicator">
+                                <div class="timeline-indicator-dot"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4">
+                <!-- Col 3: To-Do List Card -->
+                <div class="col-xl-5 col-lg-6">
+                    <div class="glass-panel" style="min-height: 380px;">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <div>
+                                <h5 class="fw-bold mb-0" style="font-family: var(--font-heading); color: #2D2D35;">To-do list</h5>
+                                <span class="text-xs text-muted"><?php echo date('l, d M Y'); ?></span>
+                            </div>
+                            <button class="circle-btn-util" title="More Actions">
+                                <i class="ti ti-arrow-up-right fs-5"></i>
+                            </button>
+                        </div>
+
+                        <div class="todo-list-wrapper">
+                            <!-- Item 1: Submit CBSE Affiliation Report (completed) -->
+                            <div class="todo-item">
+                                <div class="todo-left">
+                                    <div class="todo-check-btn completed">
+                                        <i class="ti ti-check"></i>
+                                    </div>
+                                    <div class="todo-text-block">
+                                        <span class="todo-title-txt completed">Submit CBSE Affiliation Report</span>
+                                        <span class="todo-meta-txt">Brighton School Kota</span>
+                                    </div>
+                                </div>
+                                <div class="todo-right d-flex align-items-center gap-2">
+                                    <span class="todo-meta-txt">Today 10:00 PM</span>
+                                    <div class="event-avatars">
+                                        <img src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=60" alt="Avatar" class="event-avatar-img">
+                                        <img src="https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=60" alt="Avatar" class="event-avatar-img">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Item 2: Setup new CBSE academic sessions -->
+                            <div class="todo-item">
+                                <div class="todo-left">
+                                    <div class="todo-check-btn" onclick="this.classList.toggle('completed'); this.nextElementSibling.querySelector('.todo-title-txt').classList.toggle('completed')">
+                                        <i class="ti ti-check"></i>
+                                    </div>
+                                    <div class="todo-text-block">
+                                        <span class="todo-title-txt">Setup new CBSE academic sessions</span>
+                                        <span class="todo-meta-txt">Under Academic Setup</span>
+                                    </div>
+                                </div>
+                                <div class="todo-right">
+                                    <span class="todo-meta-txt">Due tomorrow</span>
+                                </div>
+                            </div>
+
+                            <!-- Item 3: Check fee defaulters & trigger SMS alerts -->
+                            <div class="todo-item">
+                                <div class="todo-left">
+                                    <div class="todo-check-btn" onclick="this.classList.toggle('completed'); this.nextElementSibling.querySelector('.todo-title-txt').classList.toggle('completed')">
+                                        <i class="ti ti-check"></i>
+                                    </div>
+                                    <div class="todo-text-block">
+                                        <span class="todo-title-txt">Check fee defaulters & trigger SMS alerts</span>
+                                        <span class="todo-meta-txt">Fees management module</span>
+                                    </div>
+                                </div>
+                                <div class="todo-right">
+                                    <span class="todo-meta-txt">Due in 2 days</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Col 4: Summary Curve Chart Card -->
+                <div class="col-xl-7 col-lg-6">
+                    <div class="glass-panel" style="min-height: 380px;">
+                        <div class="d-flex justify-content-between align-items-center mb-4">
+                            <div>
+                                <h5 class="fw-bold mb-0" style="font-family: var(--font-heading); color: #2D2D35;">Summary</h5>
+                                <span class="text-xs text-muted">Track school financial collection</span>
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="circle-btn-util" title="Chart Options">
+                                    <i class="ti ti-adjustments-horizontal fs-5"></i>
+                                </button>
+                                <button class="circle-btn-util" title="Expanded View">
+                                    <i class="ti ti-arrow-up-right fs-5"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="summary-chart-container">
+                            <!-- Bezier curve chart using Chart.js -->
+                            <canvas id="summaryChart"></canvas>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
-
-        <!-- Row 3: Recent Fee Transactions & Expenses/Cards Stack -->
-        <div class="row g-4">
-            <!-- Left Column: Recent Fee Transactions Table (Wide 8-col grid) -->
-            <div class="col-xl-8 col-lg-7">
-                <div class="card-premium">
-                    <div class="card-header">
-                        <h6 class="font-primary fw-bold text-sm">Recent Fee Transactions</h6>
-                        <div class="table-header-controls">
-                            <!-- Rounded Filter & Search Controls -->
-                            <div class="table-search-box">
-                                <i class="ti ti-search"></i>
-                                <input type="text" placeholder="Search receipt..." id="activitiesSearchInput">
-                            </div>
-                            <button class="btn-filter-table">
-                                <i class="ti ti-adjustments-horizontal"></i> Filter
-                            </button>
-                        </div>
-                    </div>
-                    <div class="card-body p-0">
-                        <div class="table-responsive">
-                            <table class="table-premium mb-0 align-middle">
-                                <thead>
-                                    <tr>
-                                        <th class="col-checkbox-width">
-                                            <input type="checkbox" class="table-checkbox">
-                                        </th>
-                                        <th>Receipt No</th>
-                                        <th>Student / Activity</th>
-                                        <th>Amount</th>
-                                        <th>Status</th>
-                                        <th>Date & Time</th>
-                                        <th class="col-action-width"></th>
-                                    </tr>
-                                </thead>
-                                <tbody id="activitiesTableBody">
-                                <?php if (empty($recent_payments)): ?>
-                                    <tr>
-                                        <td colspan="7" class="text-center text-muted p-4 text-xs">No recent transactions.</td>
-                                    </tr>
-                                <?php else: ?>
-                                    <?php foreach ($recent_payments as $rp): ?>
-                                        <tr>
-                                            <td><input type="checkbox" class="table-checkbox"></td>
-                                            <td class="fw-semibold"><?php echo htmlspecialchars($rp['transaction_id'] ?? 'REC_' . sprintf('%06d', $rp['id'])); ?></td>
-                                            <td>
-                                                <div class="activity-cell">
-                                                    <div class="activity-icon-wrapper activity-icon-blue">
-                                                        <i class="ti ti-school"></i>
-                                                    </div>
-                                                    <span><?php echo htmlspecialchars($rp['first_name'] . ' ' . $rp['last_name']); ?> (Fee Paid)</span>
-                                                </div>
-                                            </td>
-                                            <td class="fw-semibold">₹<?php echo number_format($rp['amount_paid']); ?></td>
-                                            <td>
-                                                <span class="status-pill status-completed">
-                                                    <span class="status-dot"></span>Completed
-                                                </span>
-                                            </td>
-                                            <td class="text-muted"><?php echo date('d M, Y h:i A', strtotime($rp['payment_date'])); ?></td>
-                                            <td>
-                                                <button class="btn-row-action" title="More Options">
-                                                    <i class="ti ti-dots"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                <?php endif; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Right Column: Administrative Expenses & Cards (Vertical 4-col grid) -->
-            <div class="col-xl-4 col-lg-5 d-flex flex-column gap-4">
-                <!-- Card D: Spending Limit Progress -->
-                <div class="card-premium limit-card p-4">
-                    <div class="limit-header">
-                        <span class="font-secondary fw-semibold text-xs text-muted text-uppercase">Administrative Expenses</span>
-                    </div>
-                    <!-- Progress Limit Met -->
-                    <div class="limit-header my-2 d-flex justify-content-between align-items-baseline">
-                        <span class="limit-spent fw-bold text-lg">₹<?php echo number_format($expenses_spent); ?> <span class="text-xxs text-muted fw-normal">spent of</span></span>
-                        <span class="limit-total text-sm fw-semibold text-muted">₹<?php echo number_format($expenses_limit); ?></span>
-                    </div>
-                    <div class="limit-progress-bar">
-                        <div class="limit-progress-fill animate-bar admin-expense-progress-fill"></div>
-                    </div>
-                </div>
-
-                <!-- Card E: School Bank Cards Deck -->
-                <div class="card-premium p-4 flex-grow-1 d-flex flex-column justify-content-between">
-                    <div class="d-flex justify-content-between align-items-center mb-3">
-                        <h6 class="font-primary fw-bold mb-0 text-sm">School Cards</h6>
-                        <button class="btn-add-card"><i class="ti ti-plus"></i> Register card</button>
-                    </div>
-
-                    <div class="cards-deck-wrapper d-flex justify-content-center w-100" style="padding-right: 50px;">
-                        <div class="cards-deck">
-                            <!-- Card 1: Main A/C Card -->
-                            <div class="cc-card cc-card-black" id="cardPrimary">
-                                <div class="cc-top">
-                                    <div class="cc-chip-logo">
-                                        <div class="cc-chip"></div>
-                                        <i class="ti ti-wifi cc-wifi"></i>
-                                    </div>
-                                    <span class="cc-status-badge">Main A/C</span>
-                                </div>
-                                <div class="cc-number">**** **** **** 6782</div>
-                                <div class="cc-bottom">
-                                    <div class="cc-details">
-                                        <div>
-                                            <span class="cc-meta-label">EXP</span>
-                                            <span class="cc-meta-val">09/29</span>
-                                        </div>
-                                        <div>
-                                            <span class="cc-meta-label">CVV</span>
-                                            <span class="cc-meta-val">611</span>
-                                        </div>
-                                    </div>
-                                    <div class="cc-brand-logo">
-                                        <div class="circle-logo">
-                                            <span class="circle-red"></span>
-                                            <span class="circle-yellow"></span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Card 2: Sports & Culture Fund Card -->
-                            <div class="cc-card cc-card-blue" id="cardSecondary">
-                                <div class="cc-top">
-                                    <div class="cc-chip-logo">
-                                        <div class="cc-chip"></div>
-                                        <i class="ti ti-wifi cc-wifi"></i>
-                                    </div>
-                                    <span class="cc-status-badge">Sports Fund</span>
-                                </div>
-                                <div class="cc-number">**** **** **** 4356</div>
-                                <div class="cc-bottom">
-                                    <div class="cc-details">
-                                        <div>
-                                            <span class="cc-meta-label">EXP</span>
-                                            <span class="cc-meta-val">12/28</span>
-                                        </div>
-                                        <div>
-                                            <span class="cc-meta-label">CVV</span>
-                                            <span class="cc-meta-val">422</span>
-                                        </div>
-                                    </div>
-                                    <div class="cc-brand-logo">
-                                        <div class="circle-logo">
-                                            <span class="circle-red"></span>
-                                            <span class="circle-yellow"></span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
     </div>
 <?php endif; ?>
 

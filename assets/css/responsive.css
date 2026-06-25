@@ -16,28 +16,69 @@
     padding-top: 0 !important;
   }
   .main-wrapper {
-    padding-left: 0;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
   }
   .topbar-brand {
-    margin-left: 2.5rem; /* Make room for the toggle button */
+    margin-left: 0 !important;
   }
   .topbar-menu-pill {
     display: none; /* Hide topbar menu pill in mid resolution */
   }
 
-  /* Reveal Mobile Sidebar */
+  /* Reveal Mobile Sidebar and Fix Alignments */
   .app-layout.mobile-sidebar-active .app-sidebar {
-    left: 0;
+    left: 0 !important;
+    padding: 0 !important;
   }
   .app-layout.mobile-sidebar-active .sidebar-brand-header {
     display: flex !important;
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    padding: 1rem 1.25rem;
+    padding: 1.25rem 1.5rem !important;
     border-bottom: 1px solid var(--color-border);
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.75rem;
   }
+  .app-layout.mobile-sidebar-active .app-sidebar .sidebar-body {
+    align-items: stretch !important;
+  }
+  .app-layout.mobile-sidebar-active .app-sidebar .sidebar-nav-item {
+    width: calc(100% - 24px) !important;
+    height: 44px !important;
+    justify-content: flex-start !important;
+    padding: 0 1.25rem !important;
+    margin: 0 12px !important;
+    gap: 12px !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+  .app-layout.mobile-sidebar-active .app-sidebar .sidebar-nav-item i {
+    margin: 0 !important;
+    padding: 0 !important;
+    text-align: center !important;
+    font-size: 1.25rem !important;
+    width: 24px !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+  }
+  .app-layout.mobile-sidebar-active .app-sidebar .sidebar-nav-item .nav-label {
+    display: inline-block !important;
+    opacity: 1 !important;
+    font-size: var(--text-sm) !important;
+    font-weight: 500 !important;
+  }
+  .app-layout.mobile-sidebar-active .app-sidebar .sidebar-nav-item .dropdown-arrow.nav-label {
+    display: inline-flex !important;
+    opacity: 1 !important;
+    margin-left: auto !important;
+  }
+  .app-layout.mobile-sidebar-active .app-sidebar .sidebar-submenu {
+    padding-left: 3rem !important;
+  }
+  .app-layout.mobile-sidebar-active ~ .sidebar-overlay,
   .app-layout.mobile-sidebar-active .sidebar-overlay {
     opacity: 1;
     pointer-events: auto;
@@ -53,8 +94,31 @@
 
 /* Mobile Viewports (xs/sm, < 768px) */
 @media (max-width: 767px) {
-  .topbar-brand .brand-text {
-    display: none; /* Hide logo text to save space */
+  .app-topbar {
+    padding: 0.75rem 1rem !important;
+    gap: 8px !important;
+  }
+  .topbar-brand {
+    display: none !important; /* Hide brand name on very small screens to make room for session */
+  }
+  .btn-session-selector {
+    padding: 6px 10px !important;
+    font-size: var(--text-xs) !important;
+  }
+  .theme-pill-toggle {
+    display: none !important; /* Hide theme switcher on mobile header */
+  }
+  .topbar-actions-custom {
+    gap: 8px !important;
+    margin-left: auto !important;
+  }
+  .circle-btn-util {
+    width: 36px !important;
+    height: 36px !important;
+  }
+  .circle-avatar-profile {
+    width: 36px !important;
+    height: 36px !important;
   }
   .profile-info {
     display: none; /* Hide profile text metadata */
@@ -67,6 +131,27 @@
   }
   .table-search-box {
     width: 120px;
+  }
+  .dashboard-sub-header {
+    padding: 0 1rem 1.5rem 1rem !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 1rem !important;
+  }
+  .welcome-stats-block {
+    width: 100% !important;
+    display: flex !important;
+    flex-wrap: wrap !important;
+    gap: 1rem !important;
+  }
+  .stat-pill-item {
+    flex: 1 1 0% !important;
+    min-width: 100px !important;
+  }
+  .welcome-stats-block .btn-primary-pill {
+    width: 100% !important;
+    justify-content: center !important;
+    margin-top: 0.5rem !important;
   }
 }
 
@@ -88,3 +173,199 @@
     justify-content: space-between;
   }
 }
+
+/* Prevent background scrolling when mobile sidebar is active */
+body.mobile-sidebar-active {
+  overflow: hidden !important;
+}
+
+/* Virtual Assistant Tabs Modern Floating Styling */
+.assistant-tabs {
+  margin-bottom: 12px !important;
+  padding-left: 0 !important;
+  justify-content: flex-start !important;
+}
+
+.assistant-tab-btn {
+  border-radius: 12px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.4) !important;
+}
+
+.assistant-tab-btn.active {
+  border-radius: 12px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.8) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04) !important;
+}
+
+body.dark-theme .assistant-tab-btn {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+}
+
+body.dark-theme .assistant-tab-btn.active {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* SweetAlert2 button gaps alignment */
+.swal2-actions {
+  gap: 10px !important;
+}
+.swal2-actions button {
+  margin: 0 !important;
+}
+
+/* --- Proper standard toggle switch for fees items --- */
+.form-switch .form-check-input.item-active-toggle,
+.form-switch .form-check-input#toggle_all_fee_items {
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  width: 40px !important;
+  height: 20px !important;
+  border-radius: 20px !important;
+  background-color: #e2e8f0 !important; /* Neutral slate-200 */
+  border: 1px solid #cbd5e1 !important; /* Slate-300 */
+  position: relative !important;
+  cursor: pointer !important;
+  transition: background-color 0.2s, border-color 0.2s, box-shadow 0.2s !important;
+  outline: none !important;
+  box-shadow: none !important;
+  display: inline-block !important;
+}
+
+/* Hover state */
+.form-switch .form-check-input.item-active-toggle:hover,
+.form-switch .form-check-input#toggle_all_fee_items:hover {
+  border-color: #94a3b8 !important; /* Slate-400 */
+}
+
+/* Checked state background */
+.form-switch .form-check-input.item-active-toggle:checked,
+.form-switch .form-check-input#toggle_all_fee_items:checked {
+  background-color: var(--success, #10b981) !important; /* Standard green toggle when active */
+  border-color: var(--success, #10b981) !important;
+}
+
+/* Clear any checkmark (::before) from parent styles */
+.form-switch .form-check-input.item-active-toggle::before,
+.form-switch .form-check-input#toggle_all_fee_items::before,
+.form-switch .form-check-input.item-active-toggle:checked::before,
+.form-switch .form-check-input#toggle_all_fee_items:checked::before {
+  content: none !important;
+}
+
+/* Toggle circle knob */
+.form-switch .form-check-input.item-active-toggle::after,
+.form-switch .form-check-input#toggle_all_fee_items::after {
+  content: "" !important;
+  position: absolute !important;
+  top: 2px !important;
+  left: 2px !important;
+  width: 14px !important;
+  height: 14px !important;
+  border-radius: 50% !important;
+  background-color: #ffffff !important;
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.15) !important;
+  transform: none !important;
+}
+
+/* Sliding animation for checked state */
+.form-switch .form-check-input.item-active-toggle:checked::after,
+.form-switch .form-check-input#toggle_all_fee_items:checked::after {
+  transform: translateX(20px) !important;
+}
+
+/* Focus outline */
+.form-switch .form-check-input.item-active-toggle:focus,
+.form-switch .form-check-input#toggle_all_fee_items:focus {
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2) !important;
+}
+
+/* Disabled state */
+.form-switch .form-check-input.item-active-toggle:disabled,
+.form-switch .form-check-input#toggle_all_fee_items:disabled {
+  opacity: 0.5 !important;
+  cursor: not-allowed !important;
+}
+
+/* Floating Select Fee Types Dropdown */
+.fee-types-dropdown-menu {
+  position: absolute !important;
+  top: 100% !important;
+  left: 0 !important;
+}
+
+/* Fix Phosphor Icons broken by text-muted font-family override */
+i.text-muted.ph {
+  font-family: "Phosphor" !important;
+}
+i.text-muted.ph-light {
+  font-family: "Phosphor-Light" !important;
+}
+i.text-muted.ph-bold {
+  font-family: "Phosphor-Bold" !important;
+}
+i.text-muted.ph-fill {
+  font-family: "Phosphor-Fill" !important;
+}
+
+/* --- Collect Fees Modal Tables Layout and Responsiveness --- */
+
+/* On screens >= 768px, make the fees table a 4-column grid to prevent content cutting */
+@media (min-width: 768px) {
+  .collect-fees-table {
+    grid-template-columns: 110px 1fr 110px 1fr !important;
+  }
+  
+  /* Reset borders for 4-column grid */
+  .collect-fees-table .collect-cell-lbl,
+  .collect-fees-table .collect-cell-val {
+    border-right: 1px solid var(--color-border) !important;
+    border-bottom: 1px solid var(--color-border) !important;
+  }
+  
+  /* Remove right border on the 4th column */
+  .collect-fees-table .collect-cell-val:nth-child(4n) {
+    border-right: none !important;
+  }
+  
+  /* Remove bottom border on the last row (last 4 cells) */
+  .collect-fees-table .collect-cell-lbl:nth-last-child(-n + 4),
+  .collect-fees-table .collect-cell-val:nth-last-child(-n + 4) {
+    border-bottom: none !important;
+  }
+}
+
+/* On mobile screens < 768px, make both tables a clean 2-column layout */
+@media (max-width: 767px) {
+  .collect-student-table,
+  .collect-fees-table {
+    grid-template-columns: 120px 1fr !important;
+  }
+  
+  /* Reset borders for 2-column grid */
+  .collect-student-table .collect-cell-lbl,
+  .collect-student-table .collect-cell-val,
+  .collect-fees-table .collect-cell-lbl,
+  .collect-fees-table .collect-cell-val {
+    border-right: 1px solid var(--color-border) !important;
+    border-bottom: 1px solid var(--color-border) !important;
+  }
+  
+  /* Remove right border on the last column (every value cell) */
+  .collect-student-table .collect-cell-val,
+  .collect-fees-table .collect-cell-val {
+    border-right: none !important;
+  }
+  
+  /* Remove bottom border on the last row (last 2 cells) */
+  .collect-student-table .collect-cell-lbl:nth-last-child(-n + 2),
+  .collect-student-table .collect-cell-val:nth-last-child(-n + 2),
+  .collect-fees-table .collect-cell-lbl:nth-last-child(-n + 2),
+  .collect-fees-table .collect-cell-val:nth-last-child(-n + 2) {
+    border-bottom: none !important;
+  }
+}
+
+

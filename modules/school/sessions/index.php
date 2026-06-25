@@ -275,44 +275,16 @@ require_once '../../../includes/header.php';
     </div>
 </div>
 
-<!-- Success/Error Alerts -->
-<?php if ($flash_success): ?>
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    Swal.fire({
-        toast: true,
-        position: 'top-end',
-        icon: 'success',
-        title: <?php echo json_encode($flash_success); ?>,
-        showConfirmButton: false,
-        timer: 4500,
-        timerProgressBar: true,
-        customClass: { popup: 'swal-toast-custom' }
-    });
-});
-</script>
-<?php endif; ?>
-
-<?php if ($flash_error): ?>
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    Swal.fire({
-        icon: 'error',
-        title: 'Validation Error',
-        text: <?php echo json_encode($flash_error); ?>,
-        confirmButtonColor: '#6366f1',
-        customClass: {
-            confirmButton: 'swal-btn-custom'
-        }
-    });
-});
-</script>
-<?php endif; ?>
+<!-- Metadata div for Javascript flash alerts -->
+<div id="sessions-page-data"
+     data-flash-success="<?php echo sanitize($flash_success); ?>"
+     data-flash-error="<?php echo sanitize($flash_error); ?>">
+</div>
 
 <!-- Sessions Table Card -->
 <div class="row g-4">
     <div class="col-12">
-        <div class="card-premium">
+        <div class="glass-panel p-0">
             <div class="card-header">
                 <h6>All Academic Sessions</h6>
             </div>
@@ -371,7 +343,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                                     <i class="ph-fill ph-circle text-success me-1"></i> Current Session
                                                 </span>
                                             <?php else: ?>
-                                                <span class="badge bg-light text-muted text-xxs py-1.5 px-2.5 rounded-pill fw-semibold">
+                                                <span class="badge badge-inactive-custom text-xxs py-1.5 px-2.5 rounded-pill fw-semibold">
                                                     Inactive
                                                 </span>
                                             <?php endif; ?>
@@ -433,7 +405,7 @@ document.addEventListener('DOMContentLoaded', function () {
 <div class="modal fade" id="addSessionModal" tabindex="-1" aria-labelledby="addSessionModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow-lg border-0" style="border-radius: var(--border-radius-lg);">
-            <div class="modal-header border-0 bg-light py-3 px-4" style="border-top-left-radius: var(--border-radius-lg); border-top-right-radius: var(--border-radius-lg);">
+            <div class="modal-header border-0 modal-header-admin py-3 px-4" style="border-top-left-radius: var(--border-radius-lg); border-top-right-radius: var(--border-radius-lg);">
                 <h6 class="modal-title font-heading fw-bold" id="addSessionModalLabel">Add Academic Session</h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -467,7 +439,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer border-0 p-3 bg-light" style="border-bottom-left-radius: var(--border-radius-lg); border-bottom-right-radius: var(--border-radius-lg);">
+                <div class="modal-footer border-0 p-3 modal-footer-admin" style="border-bottom-left-radius: var(--border-radius-lg); border-bottom-right-radius: var(--border-radius-lg);">
                     <button type="button" class="btn-admin-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" class="btn-admin-action">Create Session</button>
                 </div>
@@ -480,7 +452,7 @@ document.addEventListener('DOMContentLoaded', function () {
 <div class="modal fade" id="editSessionModal" tabindex="-1" aria-labelledby="editSessionModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow-lg border-0" style="border-radius: var(--border-radius-lg);">
-            <div class="modal-header border-0 bg-light py-3 px-4" style="border-top-left-radius: var(--border-radius-lg); border-top-right-radius: var(--border-radius-lg);">
+            <div class="modal-header border-0 modal-header-admin py-3 px-4" style="border-top-left-radius: var(--border-radius-lg); border-top-right-radius: var(--border-radius-lg);">
                 <h6 class="modal-title font-heading fw-bold" id="editSessionModalLabel">Edit Academic Session</h6>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -513,7 +485,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         </div>
                     </div>
                 </div>
-                <div class="modal-footer border-0 p-3 bg-light" style="border-bottom-left-radius: var(--border-radius-lg); border-bottom-right-radius: var(--border-radius-lg);">
+                <div class="modal-footer border-0 p-3 modal-footer-admin" style="border-bottom-left-radius: var(--border-radius-lg); border-bottom-right-radius: var(--border-radius-lg);">
                     <button type="button" class="btn-admin-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" class="btn-admin-action">Save Changes</button>
                 </div>
@@ -528,75 +500,6 @@ document.addEventListener('DOMContentLoaded', function () {
     <input type="hidden" name="action" value="delete">
     <input type="hidden" name="id" id="delete_id">
 </form>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Edit Button Handler: Populate fields
-    const editButtons = document.querySelectorAll('.edit-session-btn');
-    editButtons.forEach(btn => {
-        btn.addEventListener('click', function() {
-            document.getElementById('edit_id').value = this.dataset.id;
-            document.getElementById('edit_name').value = this.dataset.name;
-            document.getElementById('edit_start_date').value = this.dataset.start;
-            document.getElementById('edit_end_date').value = this.dataset.end;
-            
-            const isCurrent = parseInt(this.dataset.current) === 1;
-            const checkbox = document.getElementById('edit_is_current');
-            checkbox.checked = isCurrent;
-            
-            // If already current, prevent user from unticking it to avoid empty active state
-            if (isCurrent) {
-                checkbox.setAttribute('disabled', 'disabled');
-                // Insert a hidden field to preserve value because disabled checkbox doesn't send in POST
-                let hiddenInput = document.getElementById('hidden_edit_is_current');
-                if (!hiddenInput) {
-                    hiddenInput = document.createElement('input');
-                    hiddenInput.type = 'hidden';
-                    hiddenInput.name = 'is_current';
-                    hiddenInput.id = 'hidden_edit_is_current';
-                    hiddenInput.value = '1';
-                    checkbox.parentNode.appendChild(hiddenInput);
-                }
-            } else {
-                checkbox.removeAttribute('disabled');
-                const hiddenInput = document.getElementById('hidden_edit_is_current');
-                if (hiddenInput) {
-                    hiddenInput.remove();
-                }
-            }
-        });
-    });
-
-    // Delete confirmation with SweetAlert2
-    const deleteButtons = document.querySelectorAll('.delete-session-btn');
-    deleteButtons.forEach(btn => {
-        btn.addEventListener('click', function() {
-            const id = this.dataset.id;
-            const name = this.dataset.name;
-
-            Swal.fire({
-                title: 'Delete Session?',
-                text: `Are you sure you want to permanently delete the academic session "${name}"? This action cannot be undone.`,
-                icon: 'warning',
-                showCancelButton: true,
-                confirmButtonColor: '#DC2626',
-                cancelButtonColor: '#64748B',
-                confirmButtonText: 'Yes, Delete it!',
-                cancelButtonText: 'Cancel',
-                customClass: {
-                    confirmButton: 'swal-danger-btn-custom',
-                    cancelButton: 'swal-cancel-btn-custom'
-                }
-            }).then((result) => {
-                if (result.isConfirmed) {
-                    document.getElementById('delete_id').value = id;
-                    document.getElementById('deleteSessionForm').submit();
-                }
-            });
-        });
-    });
-});
-</script>
 
 <?php
 require_once '../../../includes/footer.php';

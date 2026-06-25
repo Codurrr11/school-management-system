@@ -547,12 +547,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             )
         ");
         
+        $payment_date = !empty($_POST['payment_date']) ? $_POST['payment_date'] : date('Y-m-d H:i:s');
+        $parsed_time = strtotime($payment_date);
+        if ($parsed_time !== false) {
+            $payment_date = date('Y-m-d H:i:s', $parsed_time);
+        }
+
         $stmt_payment->execute([
             ':school_id' => $school_id,
             ':student_id' => $student_id,
             ':amount_paid' => $amount_to_allocate,
             ':fine_amount' => 0.00,
-            ':payment_date' => !empty($_POST['payment_date']) ? $_POST['payment_date'] : date('Y-m-d H:i:s'),
+            ':payment_date' => $payment_date,
             ':payment_method' => $_POST['payment_mode'] ?? 'Cash',
             ':transaction_id' => !empty($_POST['txn_no']) ? $_POST['txn_no'] : null,
             ':screenshot' => $screenshot_path,
@@ -1006,7 +1012,9 @@ require_once '../../../includes/header.php';
         const updateFeesModalEl = document.getElementById('updateFeesModal');
         let updateFeesModal = null;
         if (updateFeesModalEl) {
-            updateFeesModal = new bootstrap.Modal(updateFeesModalEl);
+             updateFeesModal = new bootstrap.Modal(updateFeesModalEl, {
+                 focus: false
+             });
         }
 
         let currentFeeItems = [];
@@ -1433,7 +1441,9 @@ require_once '../../../includes/header.php';
         const collectFeesModalEl = document.getElementById('collectFeesModal');
         let collectFeesModal = null;
         if (collectFeesModalEl) {
-            collectFeesModal = new bootstrap.Modal(collectFeesModalEl);
+             collectFeesModal = new bootstrap.Modal(collectFeesModalEl, {
+                 focus: false
+             });
         }
         
         let collectStudentObj = null;
@@ -1470,6 +1480,8 @@ require_once '../../../includes/header.php';
             return `${dd}-${mm}-${yyyy} ${hh}:${min}:${ss}`;
         }
 
+        let collectInputMode = 'amount';
+
         // Dynamic fee calculation & display updates
         function updateCollectFeesCalculations() {
             if (!collectStudentObj) return;
@@ -1488,8 +1500,7 @@ require_once '../../../includes/header.php';
             let newBal = baseBalance;
             let finalDue = 0;
 
-            // If user typed in Enter Amount field
-            if (document.activeElement === amountInput && amountInput.value !== '') {
+            if (collectInputMode === 'amount') {
                 const enteredAmount = parseFloat(amountInput.value) || 0;
                 newPaid = currentPaid + enteredAmount;
                 newBal = baseBalance - enteredAmount;
@@ -1546,9 +1557,7 @@ require_once '../../../includes/header.php';
                     const visibleChecked = document.querySelectorAll('.fee-type-item:not(.d-none) .fee-type-checkbox:checked');
                     document.getElementById('collect_select_all_fees').checked = (visibleCheckboxes.length > 0 && visibleCheckboxes.length === visibleChecked.length);
                 } else {
-                    if (document.activeElement !== amountInput) {
-                        amountInput.value = '';
-                    }
+                    amountInput.value = '';
                     newPaid = currentPaid;
                     newBal = baseBalance;
                     finalDue = 0.00;
@@ -1603,6 +1612,7 @@ require_once '../../../includes/header.php';
                         const cb = this.querySelector('.fee-type-checkbox');
                         cb.checked = !cb.checked;
                     }
+                    collectInputMode = 'types';
                     updateCollectFeesCalculations();
                 });
                 
@@ -1645,6 +1655,7 @@ require_once '../../../includes/header.php';
                 visibleCheckboxes.forEach(cb => {
                     cb.checked = isChecked;
                 });
+                collectInputMode = 'types';
                 updateCollectFeesCalculations();
             });
         }
@@ -1653,6 +1664,11 @@ require_once '../../../includes/header.php';
         const collectAmountInput = document.getElementById('collect_amount_input');
         if (collectAmountInput) {
             collectAmountInput.addEventListener('input', function() {
+                collectInputMode = 'amount';
+                updateCollectFeesCalculations();
+            });
+            collectAmountInput.addEventListener('focus', function() {
+                collectInputMode = 'amount';
                 updateCollectFeesCalculations();
             });
         }
@@ -1700,6 +1716,7 @@ require_once '../../../includes/header.php';
                             document.getElementById('collect_det_bal_fees').textContent = (balFees < 0 ? 0 : balFees).toFixed(2);
                             
                             // Reset input fields
+                            collectInputMode = 'amount';
                             document.getElementById('collect_amount_input').value = '';
                             document.getElementById('collect_due_fees').value = '0.00';
                             document.getElementById('collect_payment_date').value = getFormattedCurrentDateTime();
@@ -1740,7 +1757,9 @@ require_once '../../../includes/header.php';
         const demandBillModalEl = document.getElementById('demandBillModal');
         let demandBillModal = null;
         if (demandBillModalEl) {
-            demandBillModal = new bootstrap.Modal(demandBillModalEl);
+            demandBillModal = new bootstrap.Modal(demandBillModalEl, {
+                focus: false
+            });
         }
         if (demandBillBtn && demandBillModal) {
             demandBillBtn.addEventListener('click', function() {

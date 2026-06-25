@@ -547,12 +547,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             )
         ");
 
+        $payment_date = !empty($_POST['payment_date']) ? $_POST['payment_date'] : date('Y-m-d H:i:s');
+        $parsed_time = strtotime($payment_date);
+        if ($parsed_time !== false) {
+            $payment_date = date('Y-m-d H:i:s', $parsed_time);
+        }
+
         $stmt_payment->execute([
             ':school_id' => $school_id,
             ':student_id' => $student_id,
             ':amount_paid' => $amount_to_allocate,
             ':fine_amount' => 0.00,
-            ':payment_date' => !empty($_POST['payment_date']) ? $_POST['payment_date'] : date('Y-m-d H:i:s'),
+            ':payment_date' => $payment_date,
             ':payment_method' => $_POST['payment_mode'] ?? 'Cash',
             ':transaction_id' => !empty($_POST['txn_no']) ? $_POST['txn_no'] : null,
             ':screenshot' => $screenshot_path,
@@ -1022,7 +1028,9 @@ require_once '../../../includes/header.php';
         const updateFeesModalEl = document.getElementById('updateFeesModal');
         let updateFeesModal = null;
         if (updateFeesModalEl) {
-            updateFeesModal = new bootstrap.Modal(updateFeesModalEl);
+            updateFeesModal = new bootstrap.Modal(updateFeesModalEl, {
+                focus: false
+            });
         }
 
         let currentFeeItems = [];
@@ -1201,7 +1209,12 @@ require_once '../../../includes/header.php';
                         inputLabel: 'Enter route description for Transport Fees:',
                         showCancelButton: true,
                         confirmButtonText: 'Update',
-                        confirmButtonColor: '#0d6efd',
+                        cancelButtonText: 'Cancel',
+                        customClass: {
+                            confirmButton: 'btn-admin-action',
+                            cancelButton: 'btn-admin-secondary'
+                        },
+                        buttonsStyling: false,
                         inputValidator: (value) => {
                             if (!value) {
                                 return 'You need to write something!';
@@ -1315,7 +1328,12 @@ require_once '../../../includes/header.php';
                     focusConfirm: false,
                     showCancelButton: true,
                     confirmButtonText: 'Add/Update',
-                    confirmButtonColor: '#0d6efd',
+                    cancelButtonText: 'Cancel',
+                    customClass: {
+                        confirmButton: 'btn-admin-action',
+                        cancelButton: 'btn-admin-secondary'
+                    },
+                    buttonsStyling: false,
                     preConfirm: () => {
                         const amount = parseFloat(document.getElementById('swal_trans_amount').value) || 0;
                         const route = document.getElementById('swal_trans_route').value.trim();
@@ -1368,9 +1386,13 @@ require_once '../../../includes/header.php';
                     text: 'This will delete the entire fees structure and reset all received/due balances for this student!',
                     icon: 'warning',
                     showCancelButton: true,
-                    confirmButtonColor: '#dc3545',
-                    cancelButtonColor: '#6c757d',
-                    confirmButtonText: 'Yes, delete it!'
+                    confirmButtonText: 'Yes, delete it!',
+                    cancelButtonText: 'Cancel',
+                    customClass: {
+                        confirmButton: 'btn-admin-danger',
+                        cancelButton: 'btn-admin-secondary'
+                    },
+                    buttonsStyling: false,
                 }).then((result) => {
                     if (result.isConfirmed) {
                         document.getElementById('deleteFeesStructureForm').submit();
@@ -1449,7 +1471,9 @@ require_once '../../../includes/header.php';
         const collectFeesModalEl = document.getElementById('collectFeesModal');
         let collectFeesModal = null;
         if (collectFeesModalEl) {
-            collectFeesModal = new bootstrap.Modal(collectFeesModalEl);
+            collectFeesModal = new bootstrap.Modal(collectFeesModalEl, {
+                focus: false
+            });
         }
 
         let collectStudentObj = null;
@@ -1486,6 +1510,8 @@ require_once '../../../includes/header.php';
             return `${dd}-${mm}-${yyyy} ${hh}:${min}:${ss}`;
         }
 
+        let collectInputMode = 'amount';
+
         // Dynamic fee calculation & display updates
         function updateCollectFeesCalculations() {
             if (!collectStudentObj) return;
@@ -1504,8 +1530,7 @@ require_once '../../../includes/header.php';
             let newBal = baseBalance;
             let finalDue = 0;
 
-            // If user typed in Enter Amount field
-            if (document.activeElement === amountInput && amountInput.value !== '') {
+            if (collectInputMode === 'amount') {
                 const enteredAmount = parseFloat(amountInput.value) || 0;
                 newPaid = currentPaid + enteredAmount;
                 newBal = baseBalance - enteredAmount;
@@ -1562,9 +1587,7 @@ require_once '../../../includes/header.php';
                     const visibleChecked = document.querySelectorAll('.fee-type-item:not(.d-none) .fee-type-checkbox:checked');
                     document.getElementById('collect_select_all_fees').checked = (visibleCheckboxes.length > 0 && visibleCheckboxes.length === visibleChecked.length);
                 } else {
-                    if (document.activeElement !== amountInput) {
-                        amountInput.value = '';
-                    }
+                    amountInput.value = '';
                     newPaid = currentPaid;
                     newBal = baseBalance;
                     finalDue = 0.00;
@@ -1619,6 +1642,7 @@ require_once '../../../includes/header.php';
                         const cb = this.querySelector('.fee-type-checkbox');
                         cb.checked = !cb.checked;
                     }
+                    collectInputMode = 'types';
                     updateCollectFeesCalculations();
                 });
 
@@ -1661,6 +1685,7 @@ require_once '../../../includes/header.php';
                 visibleCheckboxes.forEach(cb => {
                     cb.checked = isChecked;
                 });
+                collectInputMode = 'types';
                 updateCollectFeesCalculations();
             });
         }
@@ -1669,6 +1694,11 @@ require_once '../../../includes/header.php';
         const collectAmountInput = document.getElementById('collect_amount_input');
         if (collectAmountInput) {
             collectAmountInput.addEventListener('input', function() {
+                collectInputMode = 'amount';
+                updateCollectFeesCalculations();
+            });
+            collectAmountInput.addEventListener('focus', function() {
+                collectInputMode = 'amount';
                 updateCollectFeesCalculations();
             });
         }
@@ -1716,6 +1746,7 @@ require_once '../../../includes/header.php';
                             document.getElementById('collect_det_bal_fees').textContent = (balFees < 0 ? 0 : balFees).toFixed(2);
 
                             // Reset input fields
+                            collectInputMode = 'amount';
                             document.getElementById('collect_amount_input').value = '';
                             document.getElementById('collect_due_fees').value = '0.00';
                             document.getElementById('collect_payment_date').value = getFormattedCurrentDateTime();
@@ -1756,7 +1787,9 @@ require_once '../../../includes/header.php';
         const demandBillModalEl = document.getElementById('demandBillModal');
         let demandBillModal = null;
         if (demandBillModalEl) {
-            demandBillModal = new bootstrap.Modal(demandBillModalEl);
+            demandBillModal = new bootstrap.Modal(demandBillModalEl, {
+                focus: false
+            });
         }
         if (demandBillBtn && demandBillModal) {
             demandBillBtn.addEventListener('click', function() {
@@ -1843,7 +1876,10 @@ require_once '../../../includes/header.php';
                     icon: 'success',
                     title: 'Demand Bill PDF Generated',
                     text: 'Bulk Demand Bill generation initiated successfully.',
-                    confirmButtonColor: '#0d6efd'
+                    customClass: {
+                        confirmButton: 'btn-admin-action'
+                    },
+                    buttonsStyling: false
                 });
             });
         }
@@ -2038,8 +2074,8 @@ require_once '../../../includes/header.php';
 
                 </div>
                 <div class="modal-footer border-top-0 pt-0 d-flex justify-content-between">
-                    <button type="button" class="btn btn-secondary font-heading fw-bold px-4" data-bs-dismiss="modal" style="background-color: #92a498; border-color: #92a498; height: 38px; border-radius: 8px;">Close</button>
-                    <button type="submit" class="btn btn-primary font-heading fw-bold px-4" style="background-color: #0d6efd; border-color: #0d6efd; height: 38px; border-radius: 8px;">Download</button>
+                    <button type="button" class="btn-admin-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn-admin-action">Download</button>
                 </div>
             </form>
         </div>
@@ -2123,17 +2159,17 @@ require_once '../../../includes/header.php';
 
                 </div>
                 <div class="modal-footer border-top-0 pt-0 d-flex justify-content-between">
-                    <div>
-                        <button type="button" class="btn btn-primary font-heading fw-bold px-3 me-2" id="addTransportFeesBtn" style="background-color: #0d6efd; border-color: #0d6efd; height: 38px; border-radius: 8px;">
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn-admin-action" id="addTransportFeesBtn">
                             <i class="ph-bold ph-plus"></i> Add Transport Fees
                         </button>
-                        <button type="button" class="btn btn-danger font-heading fw-bold px-3" id="deleteFeesStructBtn" style="background-color: #dc3545; border-color: #dc3545; height: 38px; border-radius: 8px;">
+                        <button type="button" class="btn-admin-danger w-auto" id="deleteFeesStructBtn">
                             Delete Fees Structure
                         </button>
                     </div>
-                    <div>
-                        <button type="button" class="btn btn-secondary font-heading fw-bold px-4 me-2" data-bs-dismiss="modal" style="background-color: #92a498; border-color: #92a498; height: 38px; border-radius: 8px;">Close</button>
-                        <button type="submit" class="btn btn-primary font-heading fw-bold px-4" style="background-color: #0d6efd; border-color: #0d6efd; height: 38px; border-radius: 8px;">Save</button>
+                    <div class="d-flex gap-2">
+                        <button type="button" class="btn-admin-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn-admin-action">Save</button>
                     </div>
                 </div>
             </form>
@@ -2340,7 +2376,7 @@ require_once '../../../includes/header.php';
 
                 </div>
                 <div class="modal-footer border-top-0 pt-0 d-flex justify-content-end">
-                    <button type="submit" class="btn btn-primary font-heading fw-bold px-4" style="background-color: #0d6efd; border-color: #0d6efd; height: 38px; border-radius: 8px;">Update</button>
+                    <button type="submit" class="btn-admin-action">Update</button>
                 </div>
             </form>
         </div>
