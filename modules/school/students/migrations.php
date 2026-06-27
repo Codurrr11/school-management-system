@@ -11,26 +11,47 @@ if (isset($_GET['get_eligible_students'])) {
     header('Content-Type: application/json');
     $session_id = intval($_GET['session_id']);
     $class_id = intval($_GET['class_id']);
-    $section_id = intval($_GET['section_id']);
+    $section_id_raw = $_GET['section_id'] ?? '';
 
-    $stmt = $pdo->prepare("
-        SELECT s.id, s.first_name, s.last_name, s.admission_no, s.roll_no, u.username as u_name
-        FROM   students s
-        JOIN   users u ON s.user_id = u.id
-        WHERE  s.school_id = :school_id
-          AND  s.session_id = :session_id
-          AND  s.class_id = :class_id
-          AND  s.section_id = :section_id
-          AND  s.deleted_at IS NULL
-          AND  s.status = 'active'
-        ORDER  BY s.first_name ASC
-    ");
-    $stmt->execute([
-        ':school_id' => $school_id,
-        ':session_id' => $session_id,
-        ':class_id' => $class_id,
-        ':section_id' => $section_id
-    ]);
+    if ($section_id_raw === 'all') {
+        $stmt = $pdo->prepare("
+            SELECT s.id, s.first_name, s.last_name, s.admission_no, s.roll_no, u.username as u_name, sec.name as section_name
+            FROM   students s
+            JOIN   users u ON s.user_id = u.id
+            LEFT JOIN sections sec ON s.section_id = sec.id
+            WHERE  s.school_id = :school_id
+              AND  s.session_id = :session_id
+              AND  s.class_id = :class_id
+              AND  s.deleted_at IS NULL
+              AND  s.status = 'active'
+            ORDER  BY sec.name ASC, s.first_name ASC
+        ");
+        $stmt->execute([
+            ':school_id' => $school_id,
+            ':session_id' => $session_id,
+            ':class_id' => $class_id
+        ]);
+    } else {
+        $section_id = intval($section_id_raw);
+        $stmt = $pdo->prepare("
+            SELECT s.id, s.first_name, s.last_name, s.admission_no, s.roll_no, u.username as u_name
+            FROM   students s
+            JOIN   users u ON s.user_id = u.id
+            WHERE  s.school_id = :school_id
+              AND  s.session_id = :session_id
+              AND  s.class_id = :class_id
+              AND  s.section_id = :section_id
+              AND  s.deleted_at IS NULL
+              AND  s.status = 'active'
+            ORDER  BY s.first_name ASC
+        ");
+        $stmt->execute([
+            ':school_id' => $school_id,
+            ':session_id' => $session_id,
+            ':class_id' => $class_id,
+            ':section_id' => $section_id
+        ]);
+    }
     $students_list = $stmt->fetchAll();
     echo json_encode(['success' => true, 'students' => $students_list]);
     exit;
@@ -82,16 +103,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'migrate') {
         $from_session_id = intval($_POST['from_session_id'] ?? 0);
         $from_class_id   = intval($_POST['from_class_id']   ?? 0);
-        $from_section_id = intval($_POST['from_section_id'] ?? 0);
+        $from_section_id_raw = $_POST['from_section_id'] ?? '';
         
         $to_session_id   = intval($_POST['to_session_id']   ?? 0);
         $to_class_id     = intval($_POST['to_class_id']     ?? 0);
-        $to_section_id   = intval($_POST['to_section_id']   ?? 0);
+        $to_section_id_raw = $_POST['to_section_id']   ?? '';
 
         $student_ids = $_POST['student_ids'] ?? [];
 
-        if (empty($from_session_id) || empty($from_class_id) || empty($from_section_id) ||
-            empty($to_session_id) || empty($to_class_id) || empty($to_section_id)) {
+        if (empty($from_session_id) || empty($from_class_id) || $from_section_id_raw === '' ||
+            empty($to_session_id) || empty($to_class_id) || $to_section_id_raw === '') {
             $_SESSION['flash_error'] = "All Source and Target session, class, and section selections are required.";
             header('Location: migrations.php');
             exit;
@@ -112,23 +133,136 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $student_ids_json = json_encode($student_ids);
             $migrated_by = ($_SESSION['first_name'] ?? 'Admin') . ' ' . ($_SESSION['last_name'] ?? '');
 
-            // 1. Update students session, class, and section
             $in_clause = implode(',', $student_ids);
-            $stmt_update = $pdo->prepare("
+
+            // 1. Prevent duplicate promotions for students already existing in the target session
+            $stmt_check = $pdo->prepare("
+                SELECT id, first_name, last_name 
+                FROM students 
+                WHERE id IN ($in_clause) 
+                  AND session_id = :to_session_id
+                  AND deleted_at IS NULL
+            ");
+            $stmt_check->execute([':to_session_id' => $to_session_id]);
+            $already_promoted = $stmt_check->fetchAll();
+            if (!empty($already_promoted)) {
+                $names = [];
+                foreach ($already_promoted as $ap) {
+                    $names[] = $ap['first_name'] . ' ' . $ap['last_name'];
+                }
+                throw new Exception("The following student(s) are already promoted/existing in the target session: " . implode(', ', $names));
+            }
+
+            // 2. Fetch source & target section mappings if target section is 'keep_same'
+            $src_sec_map = [];
+            $tgt_sec_map = [];
+            if ($to_section_id_raw === 'keep_same') {
+                // Fetch source class sections
+                $stmt_src_secs = $pdo->prepare("SELECT id, name FROM sections WHERE class_id = :class_id AND school_id = :school_id");
+                $stmt_src_secs->execute([':class_id' => $from_class_id, ':school_id' => $school_id]);
+                $src_sections = $stmt_src_secs->fetchAll();
+                foreach ($src_sections as $sec) {
+                    $src_sec_map[$sec['id']] = strtolower(trim($sec['name']));
+                }
+
+                // Fetch target class sections
+                $stmt_tgt_secs = $pdo->prepare("SELECT id, name FROM sections WHERE class_id = :class_id AND school_id = :school_id");
+                $stmt_tgt_secs->execute([':class_id' => $to_class_id, ':school_id' => $school_id]);
+                $tgt_sections = $stmt_tgt_secs->fetchAll();
+                foreach ($tgt_sections as $sec) {
+                    $tgt_sec_map[strtolower(trim($sec['name']))] = $sec['id'];
+                }
+            }
+
+            // 3. Fetch current student details for processing
+            $stmt_stud_details = $pdo->query("SELECT id, section_id, roll_no, first_name, last_name FROM students WHERE id IN ($in_clause)");
+            $students_to_migrate = $stmt_stud_details->fetchAll();
+
+            // Prepare single update statement
+            $stmt_update_student = $pdo->prepare("
                 UPDATE students 
                 SET session_id = :to_session_id, 
                     class_id = :to_class_id, 
-                    section_id = :to_section_id 
-                WHERE id IN ($in_clause) AND school_id = :school_id
+                    section_id = :to_section_id,
+                    roll_no = :roll_no
+                WHERE id = :id AND school_id = :school_id
             ");
-            $stmt_update->execute([
-                ':to_session_id' => $to_session_id,
-                ':to_class_id' => $to_class_id,
-                ':to_section_id' => $to_section_id,
-                ':school_id' => $school_id
-            ]);
 
-            // 2. Log in student_migrations
+            foreach ($students_to_migrate as $stud) {
+                // Determine target section
+                if ($to_section_id_raw === 'keep_same') {
+                    $src_sec_id = $stud['section_id'];
+                    $sec_name = $src_sec_map[$src_sec_id] ?? '';
+                    if ($sec_name === '') {
+                        throw new Exception("Student {$stud['first_name']} {$stud['last_name']} does not have a valid source section assigned.");
+                    }
+                    if (!isset($tgt_sec_map[$sec_name])) {
+                        throw new Exception("Target Class does not have a matching section named '" . strtoupper($sec_name) . "' defined.");
+                    }
+                    $target_sec_id = $tgt_sec_map[$sec_name];
+                } else {
+                    $target_sec_id = intval($to_section_id_raw);
+                }
+
+                // Resolve roll number in target section
+                $roll_no = $stud['roll_no'];
+                if (!empty($roll_no)) {
+                    $stmt_check_roll = $pdo->prepare("
+                        SELECT COUNT(*) 
+                        FROM students 
+                        WHERE school_id = :school_id 
+                          AND session_id = :to_session_id 
+                          AND class_id = :to_class_id 
+                          AND section_id = :to_section_id 
+                          AND roll_no = :roll_no 
+                          AND id != :id
+                          AND deleted_at IS NULL
+                    ");
+                    $stmt_check_roll->execute([
+                        ':school_id' => $school_id,
+                        ':to_session_id' => $to_session_id,
+                        ':to_class_id' => $to_class_id,
+                        ':to_section_id' => $target_sec_id,
+                        ':roll_no' => $roll_no,
+                        ':id' => $stud['id']
+                    ]);
+                    if ($stmt_check_roll->fetchColumn() > 0) {
+                        // Find next available roll number in target section
+                        $stmt_max_roll = $pdo->prepare("
+                            SELECT MAX(CAST(roll_no AS UNSIGNED)) 
+                            FROM students 
+                            WHERE school_id = :school_id 
+                              AND session_id = :to_session_id 
+                              AND class_id = :to_class_id 
+                              AND section_id = :to_section_id 
+                              AND deleted_at IS NULL
+                        ");
+                        $stmt_max_roll->execute([
+                            ':school_id' => $school_id,
+                            ':to_session_id' => $to_session_id,
+                            ':to_class_id' => $to_class_id,
+                            ':to_section_id' => $target_sec_id
+                        ]);
+                        $max_roll = intval($stmt_max_roll->fetchColumn());
+                        $roll_no = strval($max_roll + 1);
+                    }
+                }
+
+                // Execute update
+                $stmt_update_student->execute([
+                    ':to_session_id' => $to_session_id,
+                    ':to_class_id' => $to_class_id,
+                    ':to_section_id' => $target_sec_id,
+                    ':roll_no' => !empty($roll_no) ? $roll_no : null,
+                    ':id' => $stud['id'],
+                    ':school_id' => $school_id
+                ]);
+            }
+
+            // 4. Log in student_migrations
+            $from_section_db = ($from_section_id_raw === 'all') ? null : intval($from_section_id_raw);
+            $to_section_db   = ($to_section_id_raw === 'keep_same') ? null : intval($to_section_id_raw);
+
             $stmt_log = $pdo->prepare("
                 INSERT INTO student_migrations (
                     school_id, from_session_id, to_session_id, 
@@ -146,8 +280,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':to_session_id'   => $to_session_id,
                 ':from_class_id'   => $from_class_id,
                 ':to_class_id'     => $to_class_id,
-                ':from_section_id' => $from_section_id,
-                ':to_section_id'   => $to_section_id,
+                ':from_section_id' => $from_section_db,
+                ':to_section_id'   => $to_section_db,
                 ':total_students'  => $total_students,
                 ':student_ids'     => $student_ids_json,
                 ':migrated_by'     => $migrated_by
@@ -156,7 +290,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->commit();
             $_SESSION['flash_success'] = "Successfully migrated/promoted $total_students student(s) to the new session/class/section!";
         } catch (Exception $e) {
-            $pdo->rollBack();
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
             $_SESSION['flash_error'] = "Migration failed: " . $e->getMessage();
         }
         header('Location: migrations.php');
@@ -276,9 +412,15 @@ require_once '../../../includes/header.php';
                                         <td><span class="fw-semibold"><?php echo sanitize($m['from_session'] ?? '—'); ?></span></td>
                                         <td><span class="fw-semibold"><?php echo sanitize($m['to_session'] ?? '—'); ?></span></td>
                                         <td><span class="badge bg-secondary-subtle text-secondary px-2 py-0.5 rounded text-xxs"><?php echo sanitize($m['from_class'] ?? '—'); ?></span></td>
-                                        <td><span class="badge bg-secondary-subtle text-secondary px-2 py-0.5 rounded text-xxs"><?php echo sanitize($m['from_section'] ?? '—'); ?></span></td>
+                                        <td><span class="badge bg-secondary-subtle text-secondary px-2 py-0.5 rounded text-xxs"><?php echo !empty($m['from_section_id']) ? sanitize($m['from_section'] ?? '—') : 'All Sections'; ?></span></td>
                                         <td><span class="badge bg-primary-subtle text-primary px-2 py-0.5 rounded text-xxs"><?php echo sanitize($m['to_class'] ?? '—'); ?></span></td>
-                                        <td><span class="badge bg-primary-subtle text-primary px-2 py-0.5 rounded text-xxs"><?php echo sanitize($m['to_section'] ?? '—'); ?></span></td>
+                                        <td><span class="badge bg-primary-subtle text-primary px-2 py-0.5 rounded text-xxs"><?php 
+                                            if (!empty($m['to_section_id'])) {
+                                                echo sanitize($m['to_section'] ?? '—');
+                                            } else {
+                                                echo empty($m['from_section_id']) ? 'Keep Same Sections' : '—';
+                                            }
+                                        ?></span></td>
                                         <td><span class="fw-bold text-success"><?php echo intval($m['total_students']); ?></span></td>
                                         <td><span class="text-xxs text-muted"><?php echo date('d-m-Y, h:i a', strtotime($m['created_at'])); ?></span></td>
                                         <td><span class="text-xs"><?php echo sanitize($m['migrated_by'] ?? '—'); ?></span></td>

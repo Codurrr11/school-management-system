@@ -29,6 +29,12 @@ if (!$student) {
     exit;
 }
 
+// Fetch school details
+$stmt_school = $pdo->prepare("SELECT * FROM schools WHERE id = :school_id");
+$stmt_school->execute([':school_id' => $school_id]);
+$school = $stmt_school->fetch();
+
+
 // Fetch student siblings
 $siblings = [];
 if (!empty($student['father_name']) || !empty($student['mother_name'])) {
@@ -1511,58 +1517,71 @@ require_once '../../../includes/header.php';
 
                     <!-- TAB: DOWNLOAD ID CARD -->
                     <div class="tab-pane fade" id="idcard" role="tabpanel" aria-labelledby="idcard-tab">
-                        <div class="teacher-section-title">
+                        <div class="teacher-section-title d-print-none">
                             <i class="ph-light ph-identification-card"></i> Student ID Card
                         </div>
-                        <p class="text-xs text-muted mb-4">Printable smart student identity card layout. Direct download ready.</p>
+                        <p class="text-xs text-muted mb-4 d-print-none">Printable smart student identity card layout. Direct download ready.</p>
 
                         <div class="d-flex flex-column align-items-center mb-4">
-                            <!-- Premium CSS ID Card -->
-                            <div class="student-id-card border rounded-3 p-3 text-center shadow-sm">
-                                <!-- Badge Background Pattern -->
-                                <div class="id-card-top-decoration"></div>
-                                <h6 class="text-uppercase fw-bold text-xs mb-1 id-card-header-label">SchoolSaaS ERP</h6>
-                                <p class="text-xxs text-white-50 mb-3">SaaS Academy Excellence</p>
+                            <!-- Wrapper for print targeting -->
+                            <div class="idcard-print-wrap">
+                                <!-- Clean, Minimal, Professional ID Card -->
+                                <div class="student-id-card">
+                                    <!-- Header -->
+                                    <div class="id-card-header">
+                                        <div class="id-card-school-name"><?php echo htmlspecialchars($school['name'] ?? 'SchoolSaaS Academy'); ?></div>
+                                        <div class="id-card-tag font-heading">STUDENT IDENTITY CARD</div>
+                                    </div>
+                                    
+                                    <!-- Photo -->
+                                    <div class="id-card-photo">
+                                        <?php if (!empty($student['photo'])): ?>
+                                            <img src="<?php echo BASE_URL . sanitize($student['photo']); ?>" alt="ID Card Photo">
+                                        <?php else: ?>
+                                            <div class="id-card-photo-placeholder">
+                                                <?php echo strtoupper(substr($student['first_name'], 0, 1) . substr($student['last_name'] ?? '', 0, 1)); ?>
+                                            </div>
+                                        <?php endif; ?>
+                                    </div>
 
-                                <div class="mx-auto mb-3 id-card-avatar-container">
-                                    <?php if (!empty($student['photo'])): ?>
-                                        <img src="<?php echo BASE_URL . sanitize($student['photo']); ?>" alt="ID Card Photo" class="id-card-img">
-                                    <?php else: ?>
-                                        <div class="text-dark fw-bold fs-5 id-card-avatar-placeholder">
-                                            <?php echo strtoupper(substr($student['first_name'], 0, 1) . substr($student['last_name'] ?? '', 0, 1)); ?>
+                                    <!-- Name -->
+                                    <div class="id-card-name"><?php echo sanitize($student['first_name'] . ' ' . $student['last_name']); ?></div>
+                                    
+                                    <!-- Divider / Details -->
+                                    <div class="id-card-details">
+                                        <div class="id-card-row">
+                                            <span class="id-card-label">Admission No:</span>
+                                            <span class="id-card-value"><?php echo sanitize(($student['admission_no_prefix'] ?? '') . $student['admission_no']); ?></span>
                                         </div>
-                                    <?php endif; ?>
-                                </div>
-
-                                <h5 class="fw-bold fs-6 mb-1 text-white"><?php echo sanitize($student['first_name'] . ' ' . $student['last_name']); ?></h5>
-                                <span class="badge bg-accent text-dark mb-3 px-2 py-0.5 fw-bold text-xxs">Student</span>
-
-                                <div class="text-start text-xxs text-light px-2 py-2 mb-3 rounded id-card-info-box">
-                                    <div class="row g-1">
-                                        <div class="col-5 text-white-50">Roll No:</div>
-                                        <div class="col-7 fw-bold"><?php echo sanitize($student['roll_no'] ?? '—'); ?></div>
-
-                                        <div class="col-5 text-white-50">Class:</div>
-                                        <div class="col-7 fw-bold"><?php echo sanitize($student['class_name'] ?? '—') . ' - ' . sanitize($student['section_name'] ?? '—'); ?></div>
-
-                                        <div class="col-5 text-white-50">Blood Group:</div>
-                                        <div class="col-7 fw-bold text-danger"><?php echo sanitize($student['blood_group'] ?? '—'); ?></div>
-
-                                        <div class="col-5 text-white-50">Emergency:</div>
-                                        <div class="col-7 fw-bold"><?php echo sanitize($student['mobile_no'] ?? '—'); ?></div>
+                                        <div class="id-card-row">
+                                            <span class="id-card-label">Roll Number:</span>
+                                            <span class="id-card-value"><?php echo sanitize($student['roll_no'] ?? '—'); ?></span>
+                                        </div>
+                                        <div class="id-card-row">
+                                            <span class="id-card-label">Class:</span>
+                                            <span class="id-card-value"><?php echo sanitize(($student['class_name'] ?? '—') . ' - ' . ($student['section_name'] ?? '—')); ?></span>
+                                        </div>
+                                        <div class="id-card-row">
+                                            <span class="id-card-label">Blood Group:</span>
+                                            <span class="id-card-value text-danger fw-bold"><?php echo sanitize($student['blood_group'] ?? '—'); ?></span>
+                                        </div>
+                                        <div class="id-card-row">
+                                            <span class="id-card-label">Emergency No:</span>
+                                            <span class="id-card-value"><?php echo sanitize($student['mobile_no'] ?? '—'); ?></span>
+                                        </div>
                                     </div>
-                                </div>
 
-                                <div class="pt-2 border-top border-secondary">
-                                    <!-- Barcode representation -->
-                                    <div class="bg-white mx-auto rounded p-1 mb-1 id-card-barcode-container">
-                                        <div class="id-card-barcode-lines"></div>
+                                    <!-- Footer Barcode & RFID -->
+                                    <div class="id-card-footer">
+                                        <div class="id-card-barcode-box">
+                                            <div class="id-card-barcode-lines"></div>
+                                        </div>
+                                        <div class="id-card-rfid">RFID: <?php echo sanitize($student['biometric_code'] ?? 'BIO-99021'); ?></div>
                                     </div>
-                                    <span class="text-xxs text-white-50 mono">RFID: <?php echo sanitize($student['biometric_code'] ?? 'BIO-99021'); ?></span>
                                 </div>
                             </div>
 
-                            <button type="button" class="btn btn-primary btn-sm mt-4 print-page-trigger">
+                            <button type="button" class="btn btn-primary btn-sm mt-4 print-page-trigger d-print-none">
                                 <i class="ph-light ph-printer"></i> Print / Download ID Card
                             </button>
                         </div>

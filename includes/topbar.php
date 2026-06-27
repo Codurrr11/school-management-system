@@ -102,3 +102,24 @@
         </div>
     </div>
 </header>
+
+<!-- Global Search Command Palette Overlay -->
+<div class="search-overlay d-none" id="globalSearchOverlay">
+    <div class="search-modal-card">
+        <div class="search-modal-header">
+            <i class="ti ti-search search-modal-icon"></i>
+            <input type="text" id="globalSearchInput" placeholder="Search pages..." autocomplete="off">
+            <button type="button" class="search-modal-close" id="globalSearchCloseBtn" aria-label="Close Search">
+                <i class="ti ti-x"></i>
+            </button>
+        </div>
+        <div class="search-modal-body">
+            <div class="search-results-list" id="globalSearchResults">
+                <!-- Results will be dynamically populated here -->
+            </div>
+        </div>
+        <div class="search-modal-footer">
+            <span>Press <kbd>Esc</kbd> to close</span>
+        </div>
+    </div>
+</div>

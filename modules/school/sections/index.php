@@ -144,7 +144,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // Fetch all classes for dropdown & reference
-$stmt = $pdo->prepare("SELECT * FROM classes WHERE school_id = :school_id ORDER BY id ASC");
+$stmt = $pdo->prepare("SELECT * FROM classes WHERE school_id = :school_id ORDER BY sort_order ASC, id ASC");
 $stmt->execute([':school_id' => $school_id]);
 $classes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -160,7 +160,7 @@ $stmt = $pdo->prepare("
     JOIN classes c ON sec.class_id = c.id
     LEFT JOIN teachers t ON sec.class_teacher_id = t.id
     WHERE sec.school_id = :school_id
-    ORDER BY c.id ASC, sec.section_name ASC
+    ORDER BY c.sort_order ASC, sec.sort_order ASC, sec.section_name ASC
 ");
 $stmt->execute([':school_id' => $school_id]);
 $sections = $stmt->fetchAll(PDO::FETCH_ASSOC);

@@ -515,13 +515,48 @@ $fields_map = [
         'value' => (!empty($student['created_at'])) ? date('d-M-Y', strtotime($student['created_at'])) : '—'
     ]
 ];
+// Categorized sections for structured CBSE layout
+$sections = [
+    'academic' => [
+        'title' => 'I. Academic Details / शैक्षणिक विवरण',
+        'fields' => ['class_name', 'section_name', 'admission_date', 'admission_no', 'roll_no', 'stream', 'medium', 'enrolled_session', 'enrolled_year', 'enrolled_classes']
+    ],
+    'personal' => [
+        'title' => 'II. Student Personal Profile / छात्र का व्यक्तिगत विवरण',
+        'fields' => ['name', 'gender', 'date_of_birth', 'place_of_birth', 'blood_group', 'aadhar_no', 'pen_no', 'apaar_id', 'nationality', 'religion', 'caste', 'category', 'height', 'weight']
+    ],
+    'parents' => [
+        'title' => 'III. Parents / Guardian Details / माता-पिता या अभिभावक का विवरण',
+        'fields' => [
+            'father_name', 'father_occupation', 'father_qualification', 'father_mobile', 'father_aadhar', 'father_email', 'father_income',
+            'mother_name', 'mother_occupation', 'mother_qualification', 'mother_mobile', 'mother_aadhar', 'mother_email', 'mother_income',
+            'guardian_name', 'guardian_occupation', 'guardian_qualification', 'guardian_mobile', 'guardian_aadhar', 'guardian_address', 'guardian_email', 'guardian_income'
+        ]
+    ],
+    'contact' => [
+        'title' => 'IV. Contact & Address Details / संपर्क एवं पता विवरण',
+        'fields' => ['address', 'city', 'state', 'pincode', 'country', 'mobile_no', 'whatsapp_no', 'alternate_mobile_no', 'email']
+    ],
+    'previous' => [
+        'title' => 'V. Previous Academic History / पिछला शैक्षणिक इतिहास',
+        'fields' => ['attended_school', 'attended_classes', 'school_affiliated', 'last_session', 'transfer_certificate_no', 'transfer_certificate_date']
+    ],
+    'bank' => [
+        'title' => 'VI. Bank Account Details / बैंक खाते का विवरण',
+        'fields' => ['bank_name', 'bank_branch', 'bank_account_no', 'ifsc_code', 'bank_account_holder', 'pan_no']
+    ],
+    'additional' => [
+        'title' => 'VII. Additional Details & Welfare Info / अतिरिक्त विवरण',
+        'fields' => ['is_rte_student', 'rte_application_no', 'is_bpl_student', 'child_with_special_needs', 'samagra_id', 'scholarship_id', 'scholarship_password', 'domicile_application_no', 'income_application_no', 'caste_application_no', 'dob_certificate_no']
+    ]
+];
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <title>Admission Form - <?php echo htmlspecialchars($student['first_name'] . ' ' . $student['last_name']); ?></title>
-    <!-- Include Poppins Google font & Phosphor icons -->
+    <!-- Include Poppins Google font & style definitions -->
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap">
     <link rel="stylesheet" href="../../../assets/css/main.css">
 </head>
@@ -544,7 +579,7 @@ $fields_map = [
                 </div>
             </div>
             
-            <!-- Photo Slot (if checked or by default) -->
+            <!-- Photo Slot -->
             <div class="admission-print-photo-container">
                 <div class="admission-print-photo-box">
                     <?php if (!empty($student['photo'])): ?>
@@ -558,31 +593,64 @@ $fields_map = [
 
         <!-- Form Title -->
         <div class="admission-print-title">
-            <h3>Student Admission Form</h3>
+            <h3>Student Admission Form / प्रवेश आवेदन पत्र</h3>
         </div>
 
-        <!-- Form Fields Grid (filtered based on show_fields settings) -->
-        <div class="admission-print-grid">
-            <?php 
-            foreach ($show_fields as $field_key) {
-                if (isset($fields_map[$field_key])) {
-                    $item = $fields_map[$field_key];
-                    ?>
-                    <div class="admission-print-field">
-                        <span class="field-label"><?php echo htmlspecialchars($item['label']); ?>:</span>
-                        <span class="field-value"><?php echo htmlspecialchars($item['value']); ?></span>
-                    </div>
-                    <?php
-                }
+        <!-- Categorized Grid Blocks -->
+        <?php 
+        foreach ($sections as $section_key => $section_data) {
+            // Get active configured fields in this section
+            $active_section_fields = array_intersect($section_data['fields'], $show_fields);
+            if (empty($active_section_fields)) {
+                continue;
             }
             ?>
+            <div class="admission-form-section">
+                <div class="admission-section-title"><?php echo htmlspecialchars($section_data['title']); ?></div>
+                <div class="admission-grid-table">
+                    <?php 
+                    $field_count = 0;
+                    foreach ($active_section_fields as $field_key) {
+                        if (isset($fields_map[$field_key])) {
+                            $item = $fields_map[$field_key];
+                            $field_count++;
+                            ?>
+                            <div class="admission-grid-cell">
+                                <div class="admission-cell-label"><?php echo htmlspecialchars($item['label']); ?></div>
+                                <div class="admission-cell-value"><?php echo htmlspecialchars($item['value']); ?></div>
+                            </div>
+                            <?php
+                        }
+                    }
+                    // Balance odd columns in the 2-column grid
+                    if ($field_count % 2 !== 0) {
+                        ?>
+                        <div class="admission-grid-cell">
+                            <div class="admission-cell-label">&nbsp;</div>
+                            <div class="admission-cell-value">&nbsp;</div>
+                        </div>
+                        <?php
+                    }
+                    ?>
+                </div>
+            </div>
+            <?php
+        }
+        ?>
+
+        <!-- Declaration / Undertaking -->
+        <div class="admission-declaration-section">
+            <div class="admission-declaration-title">Declaration by Parent / Guardian &amp; Student / घोषणा पत्र</div>
+            <p>
+                I hereby declare that the particulars given in this admission form are true, correct, and complete to the best of my knowledge and belief. I agree to abide by the rules, regulations, and discipline guidelines of the institution. I understand that the admission of my ward is subject to the verification of original documents and eligibility criteria defined by the board.
+            </p>
         </div>
 
         <!-- Signatures block -->
         <div class="admission-print-signatures">
             <div class="admission-print-sig-line">Student Signature</div>
             <div class="admission-print-sig-line">Parent / Guardian Signature</div>
-            <div class="admission-print-sig-line">Principal Signature</div>
+            <div class="admission-print-sig-line">Principal / Authorised Signature</div>
         </div>
 
     </div>

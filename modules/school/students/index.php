@@ -552,19 +552,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
-        // Verify Fee Structure exists
-        $stmt_fee_check = $pdo->prepare("
-            SELECT COUNT(*)
-            FROM student_fee_items sfi
-            JOIN students s ON sfi.student_id = s.id
-            WHERE s.school_id = :school_id AND s.class_id = :class_id AND sfi.is_active = 1
-        ");
-        $stmt_fee_check->execute([':school_id' => $school_id, ':class_id' => $class_id]);
-        if ($stmt_fee_check->fetchColumn() == 0) {
-            $_SESSION['flash_error'] = "Admission failed: No active fee structure exists for the selected class. Admission is prevented.";
-            header('Location: index.php');
-            exit;
-        }
+        // Fee Structure check removed as fee structures can be created later
 
         // Auto-generate Admission Number if empty
         if (empty($admission_no)) {
@@ -1810,11 +1798,11 @@ require_once '../../../includes/header.php';
                         <div class="row g-3">
                             <div class="col-md-4">
                                 <label class="form-label-admin">APAAR ID</label>
-                                <input type="text" name="apaar_id" class="form-control-admin" placeholder="APAAR ID">
+                                <input type="text" name="apaar_id" class="form-control-admin" placeholder="e.g. AP-12345678">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label-admin">PEN No.</label>
-                                <input type="text" name="pen_no" class="form-control-admin" placeholder="PEN No.">
+                                <input type="text" name="pen_no" class="form-control-admin" placeholder="e.g. PEN-123456">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label-admin">Registration No.</label>
@@ -1847,12 +1835,12 @@ require_once '../../../includes/header.php';
                                 <label class="form-label-admin">Admission No. *</label>
                                 <div class="input-group">
                                     <input type="text" name="admission_no_prefix" class="form-control-admin w-25" value="<?php echo date('Y'); ?>">
-                                    <input type="text" name="admission_no" class="form-control-admin w-75" placeholder="Admission No" required>
+                                    <input type="text" name="admission_no" class="form-control-admin w-75" placeholder="e.g. 5001" required>
                                 </div>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label-admin">Admission Date</label>
-                                <input type="date" name="admission_date" class="form-control-admin">
+                                <label class="form-label-admin">Admission Date *</label>
+                                <input type="date" name="admission_date" class="form-control-admin" required>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label-admin">SRN No.</label>
@@ -1861,7 +1849,7 @@ require_once '../../../includes/header.php';
 
                             <div class="col-md-4">
                                 <label class="form-label-admin">Roll No. *</label>
-                                <input type="text" name="roll_no" class="form-control-admin" placeholder="Roll No." required>
+                                <input type="text" name="roll_no" class="form-control-admin" placeholder="e.g. 101" required>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label-admin">Classes (Applied for) *</label>
@@ -2027,21 +2015,21 @@ require_once '../../../includes/header.php';
                             </div>
 
                             <div class="col-md-4">
-                                <label class="form-label-admin">Mobile no.</label>
-                                <input type="text" name="mobile_no" class="form-control-admin" placeholder="Mobile no.">
+                                <label class="form-label-admin">Mobile no. *</label>
+                                <input type="tel" name="mobile_no" class="form-control-admin" placeholder="e.g. 9876543210" pattern="[0-9]{10}" minlength="10" maxlength="10" required>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label-admin">Alternate Number</label>
-                                <input type="text" name="alternate_no" class="form-control-admin" placeholder="Alternate Number">
+                                <input type="tel" name="alternate_no" class="form-control-admin" placeholder="e.g. 9876543211" pattern="[0-9]{10}" minlength="10" maxlength="10">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label-admin">Whatsapp no.</label>
-                                <input type="text" name="whatsapp_no" class="form-control-admin" placeholder="Whatsapp no.">
+                                <input type="tel" name="whatsapp_no" class="form-control-admin" placeholder="e.g. 9876543210" pattern="[0-9]{10}" minlength="10" maxlength="10">
                             </div>
 
                             <div class="col-md-4">
-                                <label class="form-label-admin">Email</label>
-                                <input type="email" name="email" class="form-control-admin" placeholder="Email">
+                                <label class="form-label-admin">Email *</label>
+                                <input type="email" name="email" class="form-control-admin" placeholder="e.g. student@domain.com" required>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label-admin">Gender</label>
@@ -2085,7 +2073,7 @@ require_once '../../../includes/header.php';
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label-admin">DOB *</label>
-                                <input type="date" name="dob" id="student_dob" class="form-control-admin" required>
+                                <input type="date" name="dob" id="student_dob" class="form-control-admin" max="2026-06-27" required>
                                 <small class="text-xs text-muted d-block mt-1" id="student_age_display"></small>
                             </div>
 
@@ -2257,9 +2245,9 @@ require_once '../../../includes/header.php';
                                     </tr>
                                     <tr>
                                         <td><strong>Mobile No.</strong></td>
-                                        <td><input type="text" name="mother_mobile" class="form-control-admin py-1 fs-7" placeholder="Mobile No."></td>
-                                        <td><input type="text" name="father_mobile" class="form-control-admin py-1 fs-7" placeholder="Mobile No."></td>
-                                        <td><input type="text" name="guardian_mobile" class="form-control-admin py-1 fs-7" placeholder="Mobile No."></td>
+                                        <td><input type="tel" name="mother_mobile" class="form-control-admin py-1 fs-7" placeholder="Mobile No." pattern="[0-9]{10}" minlength="10" maxlength="10"></td>
+                                        <td><input type="tel" name="father_mobile" class="form-control-admin py-1 fs-7" placeholder="Mobile No." pattern="[0-9]{10}" minlength="10" maxlength="10"></td>
+                                        <td><input type="tel" name="guardian_mobile" class="form-control-admin py-1 fs-7" placeholder="Mobile No." pattern="[0-9]{10}" minlength="10" maxlength="10"></td>
                                     </tr>
                                     <tr>
                                         <td><strong>Aadhar No.</strong></td>
@@ -2318,7 +2306,7 @@ require_once '../../../includes/header.php';
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label-admin">Aadhar No.</label>
-                                <input type="text" name="aadhar_no" class="form-control-admin" placeholder="Aadhar No.">
+                                <input type="text" name="aadhar_no" class="form-control-admin" placeholder="e.g. 123456789012" pattern="[0-9]{12}" minlength="12" maxlength="12">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label-admin">Attach Aadhar</label>
@@ -2463,7 +2451,7 @@ require_once '../../../includes/header.php';
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label-admin">Pincode *</label>
-                                <input type="text" name="pincode" class="form-control-admin" placeholder="Search pincode here..." required>
+                                <input type="text" name="pincode" class="form-control-admin" placeholder="e.g. 110001" pattern="[0-9]{6}" minlength="6" maxlength="6" required>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label-admin">City *</label>
@@ -2555,7 +2543,7 @@ require_once '../../../includes/header.php';
                 <h5 class="modal-title fw-bold" id="editStudentModalLabel">Edit Student Details</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <form action="index.php" method="POST" enctype="multipart/form-data">
+            <form id="editStudentForm" action="index.php" method="POST" enctype="multipart/form-data">
                 <input type="hidden" name="csrf_token" value="<?php echo $csrf_token; ?>">
                 <input type="hidden" name="action" value="edit">
                 <input type="hidden" name="id" id="edit_student_id">
@@ -2566,11 +2554,11 @@ require_once '../../../includes/header.php';
                         <div class="row g-3">
                             <div class="col-md-4">
                                 <label class="form-label-admin">APAAR ID</label>
-                                <input type="text" name="apaar_id" id="edit_apaar_id" class="form-control-admin">
+                                <input type="text" name="apaar_id" id="edit_apaar_id" class="form-control-admin" placeholder="e.g. AP-12345678">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label-admin">PEN No.</label>
-                                <input type="text" name="pen_no" id="edit_pen_no" class="form-control-admin">
+                                <input type="text" name="pen_no" id="edit_pen_no" class="form-control-admin" placeholder="e.g. PEN-123456">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label-admin">Registration No.</label>
@@ -2603,12 +2591,12 @@ require_once '../../../includes/header.php';
                                 <label class="form-label-admin">Admission No. *</label>
                                 <div class="input-group">
                                     <input type="text" name="admission_no_prefix" id="edit_admission_no_prefix" class="form-control-admin w-25">
-                                    <input type="text" name="admission_no" id="edit_admission_no" class="form-control-admin w-75" required>
+                                    <input type="text" name="admission_no" id="edit_admission_no" class="form-control-admin w-75" placeholder="e.g. 5001" required>
                                 </div>
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label-admin">Admission Date</label>
-                                <input type="date" name="admission_date" id="edit_admission_date" class="form-control-admin">
+                                <label class="form-label-admin">Admission Date *</label>
+                                <input type="date" name="admission_date" id="edit_admission_date" class="form-control-admin" required>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label-admin">SRN No.</label>
@@ -2617,7 +2605,7 @@ require_once '../../../includes/header.php';
 
                             <div class="col-md-4">
                                 <label class="form-label-admin">Roll No. *</label>
-                                <input type="text" name="roll_no" id="edit_roll_no" class="form-control-admin" required>
+                                <input type="text" name="roll_no" id="edit_roll_no" class="form-control-admin" placeholder="e.g. 101" pattern="\d+" required>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label-admin">Classes (Applied for) *</label>
@@ -2785,27 +2773,24 @@ require_once '../../../includes/header.php';
                                 <label class="form-label-admin">Last Name</label>
                                 <input type="text" name="last_name" id="edit_last_name" class="form-control-admin">
                             </div>
-                            <div class="col-md-4">
-                                <label class="form-label-admin">Father's Name</label>
-                                <input type="text" name="father_name" id="edit_father_name" class="form-control-admin">
-                            </div>
+
 
                             <div class="col-md-4">
-                                <label class="form-label-admin">Mobile no.</label>
-                                <input type="text" name="mobile_no" id="edit_mobile_no" class="form-control-admin">
+                                <label class="form-label-admin">Mobile no. *</label>
+                                <input type="tel" name="mobile_no" id="edit_mobile_no" class="form-control-admin" placeholder="e.g. 9876543210" pattern="[0-9]{10}" minlength="10" maxlength="10" required>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label-admin">Alternate Number</label>
-                                <input type="text" name="alternate_no" id="edit_alternate_no" class="form-control-admin">
+                                <input type="tel" name="alternate_no" id="edit_alternate_no" class="form-control-admin" placeholder="e.g. 9876543211" pattern="[0-9]{10}" minlength="10" maxlength="10">
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label-admin">Whatsapp no.</label>
-                                <input type="text" name="whatsapp_no" id="edit_whatsapp_no" class="form-control-admin">
+                                <input type="tel" name="whatsapp_no" id="edit_whatsapp_no" class="form-control-admin" placeholder="e.g. 9876543210" pattern="[0-9]{10}" minlength="10" maxlength="10">
                             </div>
 
                             <div class="col-md-4">
-                                <label class="form-label-admin">Email</label>
-                                <input type="email" name="email" id="edit_email" class="form-control-admin">
+                                <label class="form-label-admin">Email *</label>
+                                <input type="email" name="email" id="edit_email" class="form-control-admin" placeholder="e.g. student@domain.com" required>
                             </div>
                             <div class="col-md-4">
                                 <label class="form-label-admin">Gender</label>
@@ -2848,8 +2833,8 @@ require_once '../../../includes/header.php';
                                 <input type="text" name="weight" id="edit_weight" class="form-control-admin">
                             </div>
                             <div class="col-md-4">
-                                <label class="form-label-admin">DOB</label>
-                                <input type="date" name="dob" id="edit_dob" class="form-control-admin">
+                                <label class="form-label-admin">DOB *</label>
+                                <input type="date" name="dob" id="edit_dob" class="form-control-admin" max="2026-06-27" required>
                             </div>
 
                             <div class="col-md-4">
@@ -3033,9 +3018,9 @@ require_once '../../../includes/header.php';
                                     </tr>
                                     <tr>
                                         <td><strong>Mobile No.</strong></td>
-                                        <td><input type="text" name="mother_mobile" id="edit_mother_mobile" class="form-control-admin py-1 fs-7" placeholder="Mobile No."></td>
-                                        <td><input type="text" name="father_mobile" id="edit_father_mobile" class="form-control-admin py-1 fs-7" placeholder="Mobile No."></td>
-                                        <td><input type="text" name="guardian_mobile" id="edit_guardian_mobile" class="form-control-admin py-1 fs-7" placeholder="Mobile No."></td>
+                                        <td><input type="tel" name="mother_mobile" id="edit_mother_mobile" class="form-control-admin py-1 fs-7" placeholder="Mobile No." pattern="[0-9]{10}" minlength="10" maxlength="10"></td>
+                                        <td><input type="tel" name="father_mobile" id="edit_father_mobile" class="form-control-admin py-1 fs-7" placeholder="Mobile No." pattern="[0-9]{10}" minlength="10" maxlength="10"></td>
+                                        <td><input type="tel" name="guardian_mobile" id="edit_guardian_mobile" class="form-control-admin py-1 fs-7" placeholder="Mobile No." pattern="[0-9]{10}" minlength="10" maxlength="10"></td>
                                     </tr>
                                     <tr>
                                         <td><strong>Aadhar No.</strong></td>
@@ -3075,8 +3060,8 @@ require_once '../../../includes/header.php';
                                 <input type="text" name="religion" id="edit_religion" class="form-control-admin" placeholder="Religion">
                             </div>
                             <div class="col-md-3">
-                                <label class="form-label-admin">Category</label>
-                                <input type="text" name="category" id="edit_category" class="form-control-admin" placeholder="Category">
+                                <label class="form-label-admin">Category *</label>
+                                <input type="text" name="category" id="edit_category" class="form-control-admin" placeholder="Category" required>
                             </div>
                             <div class="col-md-3">
                                 <label class="form-label-admin">Caste</label>
@@ -3095,7 +3080,7 @@ require_once '../../../includes/header.php';
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label class="form-label-admin">Aadhar No.</label>
-                                <input type="text" name="aadhar_no" id="edit_aadhar_no" class="form-control-admin" placeholder="Aadhar No.">
+                                <input type="text" name="aadhar_no" id="edit_aadhar_no" class="form-control-admin" placeholder="Aadhar No." pattern="[0-9]{12}" minlength="12" maxlength="12">
                             </div>
                             <div class="col-md-6">
                                 <label class="form-label-admin">Attach Aadhar</label>

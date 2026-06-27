@@ -125,9 +125,13 @@ $role_name = $_SESSION['role_name'] ?? '';
 
     // Time-aware greeting
     $hour = (int)date('G'); // 0-23
-    if ($hour < 12)      { $greeting = 'Good morning'; }
-    elseif ($hour < 17)  { $greeting = 'Good afternoon'; }
-    else                 { $greeting = 'Good evening'; }
+    if ($hour < 12) {
+        $greeting = 'Good morning';
+    } elseif ($hour < 17) {
+        $greeting = 'Good afternoon';
+    } else {
+        $greeting = 'Good evening';
+    }
 
     // 1. Total Students
     $stmt_stud = $pdo->prepare("SELECT COUNT(*) FROM students WHERE school_id = :sid AND deleted_at IS NULL");
@@ -293,10 +297,14 @@ $role_name = $_SESSION['role_name'] ?? '';
     // 6g. RTE vs Non-RTE
     $stmt_rte = $pdo->prepare("SELECT is_rte, COUNT(*) AS count FROM students WHERE school_id = :sid AND deleted_at IS NULL GROUP BY is_rte");
     $stmt_rte->execute([':sid' => $school_id]);
-    $rte_count = 0; $non_rte_count = 0;
+    $rte_count = 0;
+    $non_rte_count = 0;
     while ($row = $stmt_rte->fetch()) {
-        if ($row['is_rte'] === 'yes') { $rte_count = (int)$row['count']; }
-        else { $non_rte_count = (int)$row['count']; }
+        if ($row['is_rte'] === 'yes') {
+            $rte_count = (int)$row['count'];
+        } else {
+            $non_rte_count = (int)$row['count'];
+        }
     }
 
     // 6h. Students by class (top 8 by sort_order)
@@ -337,7 +345,7 @@ $role_name = $_SESSION['role_name'] ?? '';
     $act_lead = $stmt_act_lead->fetchAll();
 
     $recent_activity = array_merge($act_fee, $act_lead);
-    usort($recent_activity, fn($a,$b) => strtotime($b['act_time']) - strtotime($a['act_time']));
+    usort($recent_activity, fn($a, $b) => strtotime($b['act_time']) - strtotime($a['act_time']));
     $recent_activity = array_slice($recent_activity, 0, 6);
 
     // 7. Monthly chart data
@@ -349,7 +357,9 @@ $role_name = $_SESSION['role_name'] ?? '';
     ");
     $stmt_chart_coll->execute([':sid' => $school_id]);
     $coll_by_month = array_fill(1, 12, 0.0);
-    while ($row = $stmt_chart_coll->fetch()) { $coll_by_month[(int)$row['m']] = (float)$row['total']; }
+    while ($row = $stmt_chart_coll->fetch()) {
+        $coll_by_month[(int)$row['m']] = (float)$row['total'];
+    }
 
     $stmt_chart_out = $pdo->prepare("
         SELECT MONTH(sfi.created_at) AS m, SUM(sfi.amount - sfi.paid_amount) AS total
@@ -360,9 +370,11 @@ $role_name = $_SESSION['role_name'] ?? '';
     ");
     $stmt_chart_out->execute([':sid' => $school_id]);
     $out_by_month = array_fill(1, 12, 0.0);
-    while ($row = $stmt_chart_out->fetch()) { $out_by_month[(int)$row['m']] = (float)$row['total']; }
+    while ($row = $stmt_chart_out->fetch()) {
+        $out_by_month[(int)$row['m']] = (float)$row['total'];
+    }
 
-    $months_names = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+    $months_names = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
     $current_month_num    = (int)date('m');
     $display_months_count = max(6, $current_month_num);
     $chart_months      = array_slice($months_names, 0, $display_months_count);
@@ -390,21 +402,21 @@ $role_name = $_SESSION['role_name'] ?? '';
     } catch (Exception $e) {
         $db_todos = [];
     }
-    ?>
+?>
     <div id="dashboard-data"
-         data-chart-months='<?php echo json_encode($chart_months); ?>'
-         data-chart-collected='<?php echo json_encode($chart_collected); ?>'
-         data-chart-outstanding='<?php echo json_encode($chart_outstanding); ?>'
-         data-expense-percentage="<?php echo $expense_percentage; ?>"
-         data-lead-labels='<?php echo json_encode($lead_pipeline_labels); ?>'
-         data-lead-counts='<?php echo json_encode($lead_pipeline_counts); ?>'
-         data-assistant-url="<?php echo BASE_URL; ?>modules/school/dashboard/assistant.php"
-         data-todos-url="<?php echo BASE_URL; ?>modules/school/dashboard/todos.php"
-         data-fee-percent="<?php echo $fee_target_percent; ?>"
-         data-total-students="<?php echo $total_students; ?>"
-         data-school-name="<?php echo sanitize($_SESSION['school_name'] ?? ''); ?>"
-         data-greeting="<?php echo $greeting; ?>"
-         hidden>
+        data-chart-months='<?php echo json_encode($chart_months); ?>'
+        data-chart-collected='<?php echo json_encode($chart_collected); ?>'
+        data-chart-outstanding='<?php echo json_encode($chart_outstanding); ?>'
+        data-expense-percentage="<?php echo $expense_percentage; ?>"
+        data-lead-labels='<?php echo json_encode($lead_pipeline_labels); ?>'
+        data-lead-counts='<?php echo json_encode($lead_pipeline_counts); ?>'
+        data-assistant-url="<?php echo BASE_URL; ?>modules/school/dashboard/assistant.php"
+        data-todos-url="<?php echo BASE_URL; ?>modules/school/dashboard/todos.php"
+        data-fee-percent="<?php echo $fee_target_percent; ?>"
+        data-total-students="<?php echo $total_students; ?>"
+        data-school-name="<?php echo sanitize($_SESSION['school_name'] ?? ''); ?>"
+        data-greeting="<?php echo $greeting; ?>"
+        hidden>
     </div>
     <!-- Main Dashboard Glassmorphism Container with Background Blobs -->
     <div class="glass-bg-blob blob-primary"></div>
@@ -674,143 +686,143 @@ $role_name = $_SESSION['role_name'] ?? '';
                             <div class="timeline-current-indicator">
                                 <div class="timeline-indicator-dot"></div>
                             </div>
-                            </div>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <!-- Col 2: Recent Activity Card -->
-                <div class="col-xl-7 col-lg-6">
-                    <div class="glass-panel" id="activityPanel">
-                        <div class="timeline-header">
-                            <div>
-                                <h5 class="fw-bold mb-0 font-heading">Recent Activity</h5>
-                                <span class="text-xs text-muted">Latest transactions &amp; inquiries</span>
-                            </div>
-                            <a href="<?php echo BASE_URL; ?>modules/school/fees/collected-log.php" class="circle-btn-util" title="View All">
-                                <i class="ti ti-arrow-up-right fs-5"></i>
-                            </a>
+            <!-- Col 2: Recent Activity Card -->
+            <div class="col-xl-7 col-lg-6">
+                <div class="glass-panel" id="activityPanel">
+                    <div class="timeline-header">
+                        <div>
+                            <h5 class="fw-bold mb-0 font-heading">Recent Activity</h5>
+                            <span class="text-xs text-muted">Latest transactions &amp; inquiries</span>
                         </div>
-                        <div class="dashboard-activity-feed">
-                            <?php if (empty($recent_activity)): ?>
+                        <a href="<?php echo BASE_URL; ?>modules/school/fees/collected-log.php" class="circle-btn-util" title="View All">
+                            <i class="ti ti-arrow-up-right fs-5"></i>
+                        </a>
+                    </div>
+                    <div class="dashboard-activity-feed">
+                        <?php if (empty($recent_activity)): ?>
                             <div class="text-center text-muted py-4">
                                 <i class="ti ti-timeline fs-2 d-block mb-2"></i>
                                 <span class="text-xs">No recent activity yet.</span>
                             </div>
-                            <?php else: ?>
+                        <?php else: ?>
                             <?php foreach ($recent_activity as $act): ?>
-                            <div class="dash-activity-item">
-                                <div class="dash-activity-icon <?php echo $act['type'] === 'fee' ? 'act-icon-green' : 'act-icon-blue'; ?>">
-                                    <i class="ti <?php echo $act['type'] === 'fee' ? 'ti-coin-rupee' : 'ti-user-plus'; ?>"></i>
+                                <div class="dash-activity-item">
+                                    <div class="dash-activity-icon <?php echo $act['type'] === 'fee' ? 'act-icon-green' : 'act-icon-blue'; ?>">
+                                        <i class="ti <?php echo $act['type'] === 'fee' ? 'ti-coin-rupee' : 'ti-user-plus'; ?>"></i>
+                                    </div>
+                                    <div class="dash-activity-body">
+                                        <span class="dash-activity-label"><?php echo sanitize($act['label']); ?></span>
+                                        <span class="dash-activity-detail"><?php echo sanitize($act['detail']); ?></span>
+                                    </div>
+                                    <div class="dash-activity-time">
+                                        <?php echo date('d M, g:i A', strtotime($act['act_time'])); ?>
+                                    </div>
                                 </div>
-                                <div class="dash-activity-body">
-                                    <span class="dash-activity-label"><?php echo sanitize($act['label']); ?></span>
-                                    <span class="dash-activity-detail"><?php echo sanitize($act['detail']); ?></span>
-                                </div>
-                                <div class="dash-activity-time">
-                                    <?php echo date('d M, g:i A', strtotime($act['act_time'])); ?>
-                                </div>
-                            </div>
                             <?php endforeach; ?>
-                            <?php endif; ?>
-                        </div>
+                        <?php endif; ?>
+                    </div>
 
-                        <?php if (!empty($students_by_class)): ?>
+                    <?php if (!empty($students_by_class)): ?>
                         <div class="class-breakdown-section">
                             <h6 class="class-breakdown-title">Students by Class</h6>
                             <div class="class-breakdown-grid">
                                 <?php foreach ($students_by_class as $cls): ?>
-                                <div class="class-breakdown-pill">
-                                    <span class="cbp-roman"><?php echo sanitize($cls['roman_number'] ?: $cls['class_name']); ?></span>
-                                    <span class="cbp-count"><?php echo (int)$cls['cnt']; ?></span>
-                                </div>
+                                    <div class="class-breakdown-pill">
+                                        <span class="cbp-roman"><?php echo sanitize($cls['roman_number'] ?: $cls['class_name']); ?></span>
+                                        <span class="cbp-count"><?php echo (int)$cls['cnt']; ?></span>
+                                    </div>
                                 <?php endforeach; ?>
                             </div>
                         </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+
+        <div class="row g-4 mt-0">
+            <!-- Col 3: DB-Backed To-Do List -->
+            <div class="col-xl-5 col-lg-6">
+                <div class="glass-panel todo-card-panel">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <div>
+                            <h5 class="fw-bold mb-0 font-heading">To-do list</h5>
+                            <span class="text-xs text-muted"><?php echo date('l, d M Y'); ?></span>
+                        </div>
+                        <button class="circle-btn-util" id="todoAddToggleBtn" title="Add task">
+                            <i class="ti ti-plus fs-5"></i>
+                        </button>
+                    </div>
+                    <div class="todo-add-form" id="todoAddForm">
+                        <div class="d-flex gap-2 align-items-center">
+                            <input type="text" class="form-control form-control-sm" id="todoTitleInput" placeholder="New task title..." maxlength="255">
+                            <input type="text" class="form-control form-control-sm todo-due-input" id="todoDueInput" placeholder="Due (e.g. Today)" maxlength="100">
+                            <button class="btn btn-sm btn-primary" id="todoSubmitBtn" type="button">Add</button>
+                        </div>
+                    </div>
+                    <div class="todo-list-wrapper" id="todoListWrapper">
+                        <?php if (empty($db_todos)): ?>
+                            <div class="text-center text-muted py-4" id="todoEmptyMsg">
+                                <i class="ti ti-clipboard-list fs-2 d-block mb-2"></i>
+                                <span class="text-xs">No tasks yet. Click + to add one!</span>
+                            </div>
+                        <?php else: ?>
+                            <?php foreach ($db_todos as $todo): ?>
+                                <div class="todo-item" data-todo-id="<?php echo (int)$todo['id']; ?>">
+                                    <div class="todo-left">
+                                        <div class="todo-check-btn <?php echo $todo['is_completed'] ? 'completed' : ''; ?>" data-todo-id="<?php echo (int)$todo['id']; ?>">
+                                            <i class="ti ti-check"></i>
+                                        </div>
+                                        <div class="todo-text-block">
+                                            <span class="todo-title-txt <?php echo $todo['is_completed'] ? 'completed' : ''; ?>">
+                                                <?php echo sanitize($todo['title']); ?>
+                                            </span>
+                                            <?php if ($todo['due_label']): ?>
+                                                <span class="todo-meta-txt"><?php echo sanitize($todo['due_label']); ?></span>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                    <div class="todo-right">
+                                        <button class="todo-delete-btn" data-todo-id="<?php echo (int)$todo['id']; ?>" title="Delete task" type="button">
+                                            <i class="ti ti-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
                         <?php endif; ?>
                     </div>
                 </div>
             </div>
 
-            <div class="row g-4 mt-0">
-                <!-- Col 3: DB-Backed To-Do List -->
-                <div class="col-xl-5 col-lg-6">
-                    <div class="glass-panel todo-card-panel">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            <div>
-                                <h5 class="fw-bold mb-0 font-heading">To-do list</h5>
-                                <span class="text-xs text-muted"><?php echo date('l, d M Y'); ?></span>
-                            </div>
-                            <button class="circle-btn-util" id="todoAddToggleBtn" title="Add task">
-                                <i class="ti ti-plus fs-5"></i>
+            <!-- Col 4: Summary Curve Chart Card -->
+            <div class="col-xl-7 col-lg-6">
+                <div class="glass-panel">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div>
+                            <h5 class="fw-bold mb-0 font-heading">Summary</h5>
+                            <span class="text-xs text-muted">Track school financial collection</span>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button class="circle-btn-util" title="Chart Options">
+                                <i class="ti ti-adjustments-horizontal fs-5"></i>
+                            </button>
+                            <button class="circle-btn-util" title="Expanded View">
+                                <i class="ti ti-arrow-up-right fs-5"></i>
                             </button>
                         </div>
-                        <div class="todo-add-form" id="todoAddForm">
-                            <div class="d-flex gap-2 align-items-center">
-                                <input type="text" class="form-control form-control-sm" id="todoTitleInput" placeholder="New task title..." maxlength="255">
-                                <input type="text" class="form-control form-control-sm todo-due-input" id="todoDueInput" placeholder="Due (e.g. Today)" maxlength="100">
-                                <button class="btn btn-sm btn-primary" id="todoSubmitBtn" type="button">Add</button>
-                            </div>
-                        </div>
-                        <div class="todo-list-wrapper" id="todoListWrapper">
-                            <?php if (empty($db_todos)): ?>
-                            <div class="text-center text-muted py-4" id="todoEmptyMsg">
-                                <i class="ti ti-clipboard-list fs-2 d-block mb-2"></i>
-                                <span class="text-xs">No tasks yet. Click + to add one!</span>
-                            </div>
-                            <?php else: ?>
-                            <?php foreach ($db_todos as $todo): ?>
-                            <div class="todo-item" data-todo-id="<?php echo (int)$todo['id']; ?>">
-                                <div class="todo-left">
-                                    <div class="todo-check-btn <?php echo $todo['is_completed'] ? 'completed' : ''; ?>" data-todo-id="<?php echo (int)$todo['id']; ?>">
-                                        <i class="ti ti-check"></i>
-                                    </div>
-                                    <div class="todo-text-block">
-                                        <span class="todo-title-txt <?php echo $todo['is_completed'] ? 'completed' : ''; ?>">
-                                            <?php echo sanitize($todo['title']); ?>
-                                        </span>
-                                        <?php if ($todo['due_label']): ?>
-                                        <span class="todo-meta-txt"><?php echo sanitize($todo['due_label']); ?></span>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                                <div class="todo-right">
-                                    <button class="todo-delete-btn" data-todo-id="<?php echo (int)$todo['id']; ?>" title="Delete task" type="button">
-                                        <i class="ti ti-trash"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <?php endforeach; ?>
-                            <?php endif; ?>
-                        </div>
                     </div>
-                </div>
-
-                <!-- Col 4: Summary Curve Chart Card -->
-                <div class="col-xl-7 col-lg-6">
-                    <div class="glass-panel">
-                        <div class="d-flex justify-content-between align-items-center mb-4">
-                            <div>
-                                <h5 class="fw-bold mb-0 font-heading">Summary</h5>
-                                <span class="text-xs text-muted">Track school financial collection</span>
-                            </div>
-                            <div class="d-flex gap-2">
-                                <button class="circle-btn-util" title="Chart Options">
-                                    <i class="ti ti-adjustments-horizontal fs-5"></i>
-                                </button>
-                                <button class="circle-btn-util" title="Expanded View">
-                                    <i class="ti ti-arrow-up-right fs-5"></i>
-                                </button>
-                            </div>
-                        </div>
-                        <div class="summary-chart-container">
-                            <!-- Bezier curve chart using Chart.js -->
-                            <canvas id="summaryChart"></canvas>
-                        </div>
+                    <div class="summary-chart-container">
+                        <!-- Bezier curve chart using Chart.js -->
+                        <canvas id="summaryChart"></canvas>
                     </div>
                 </div>
             </div>
         </div>
+    </div>
     </div>
 <?php endif; ?>
 

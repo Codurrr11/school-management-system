@@ -3776,72 +3776,170 @@ body.dark-theme .sibling-avatar-placeholder {
 }
 
 /* ==================================================================
-   Student ID Card
+   Clean, Minimal, Professional Student ID Card Styles
    ================================================================== */
 .student-id-card {
   width: 250px;
-  background: linear-gradient(180deg,
-      var(--color-accent) 0%,
-      #111827 150px,
-      #111827 100%);
-  color: #fff;
-  position: relative;
-  overflow: hidden;
-  border-color: var(--color-accent) !important;
+  height: 390px;
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.02) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  position: relative !important;
+  font-family: 'Poppins', 'Inter', sans-serif !important;
+  text-align: center !important;
+  color: #1e293b !important;
 }
 
-.id-card-top-decoration {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  height: 5px;
-  background-color: var(--color-accent);
+.id-card-header {
+  background: #0f172a !important; /* Slate 900 */
+  padding: 12px 10px !important;
+  color: #ffffff !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-bottom: 2px solid #38bdf8 !important; /* Sky blue border strip */
 }
 
-.id-card-header-label {
-  color: var(--color-accent);
-  margin-top: 10px;
+.id-card-school-name {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  width: 100% !important;
 }
 
-.id-card-avatar-container {
-  width: 78px;
-  height: 78px;
-  border-radius: 50%;
-  overflow: hidden;
-  border: 3px solid var(--color-accent);
-  background: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.id-card-tag {
+  font-size: 8px !important;
+  font-weight: 600 !important;
+  letter-spacing: 1px !important;
+  color: #38bdf8 !important;
+  margin-top: 2px !important;
+  text-transform: uppercase !important;
 }
 
-.id-card-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.id-card-photo {
+  margin-top: 16px !important;
+  display: flex !important;
+  justify-content: center !important;
 }
 
-.id-card-info-box {
-  background: rgba(255, 255, 255, 0.05);
+.id-card-photo img {
+  width: 85px !important;
+  height: 105px !important;
+  object-fit: cover !important;
+  border: 1px solid #cbd5e1 !important;
+  padding: 2px !important;
+  background: #ffffff !important;
+  border-radius: 4px !important;
 }
 
-.id-card-barcode-container {
-  width: 120px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+.id-card-photo-placeholder {
+  width: 85px !important;
+  height: 105px !important;
+  background: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 4px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  font-size: 1.5rem !important;
+  font-weight: 700 !important;
+  color: #94a3b8 !important;
+}
+
+.id-card-name {
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  color: #0f172a !important;
+  margin-top: 10px !important;
+  margin-bottom: 8px !important;
+  padding: 0 10px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.2px !important;
+}
+
+.id-card-details {
+  padding: 0 16px !important;
+  flex-grow: 1 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  gap: 4px !important;
+  background: #ffffff !important;
+}
+
+.id-card-row {
+  display: flex !important;
+  justify-content: space-between !important;
+  font-size: 10px !important;
+  line-height: 1.4 !important;
+}
+
+.id-card-label {
+  color: #64748b !important;
+  text-align: left !important;
+  font-weight: 500 !important;
+}
+
+.id-card-value {
+  color: #334155 !important;
+  font-weight: 600 !important;
+  text-align: right !important;
+}
+
+.id-card-footer {
+  border-top: 1px dashed #cbd5e1 !important;
+  padding: 8px 10px !important;
+  background: #f8fafc !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.id-card-barcode-box {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 2px !important;
+  padding: 3px !important;
+  width: 130px !important;
+  height: 18px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-bottom: 3px !important;
+  overflow: hidden !important;
 }
 
 .id-card-barcode-lines {
-  width: 100%;
-  height: 100%;
-  background: repeating-linear-gradient(90deg,
-      #000 0px,
-      #000 2px,
-      #fff 2px,
-      #fff 4px);
+  width: 100% !important;
+  height: 100% !important;
+  background: repeating-linear-gradient(
+    90deg,
+    #000,
+    #000 2px,
+    transparent 2px,
+    transparent 4px,
+    #000 4px,
+    #000 5px,
+    transparent 5px,
+    transparent 7px
+  ) !important;
+}
+
+.id-card-rfid {
+  font-size: 8px !important;
+  font-family: monospace !important;
+  color: #64748b !important;
+  font-weight: 500 !important;
 }
 
 /* ==================================================================
@@ -9045,30 +9143,60 @@ body.dark-theme .profile-tabs-nav .nav-link.active::after {
     display: block !important;
     position: absolute !important;
     left: 50% !important;
-    top: 50% !important;
-    transform: translate(-50%, -50%) !important;
+    top: 50px !important;
+    transform: translateX(-50%) !important;
     margin: 0 !important;
     padding: 0 !important;
   }
 
   body.printing-student-idcard .student-id-card {
     box-shadow: none !important;
-    border: 1px solid var(--color-accent) !important;
-    background: linear-gradient(180deg,
-        var(--color-accent) 0%,
-        #111827 150px,
-        #111827 100%) !important;
-    color: #fff !important;
+    border: 1px solid #cbd5e1 !important;
+    background: #ffffff !important;
+    color: #1e293b !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
 
+  body.printing-student-idcard .id-card-header {
+    background: #0f172a !important;
+    color: #ffffff !important;
+    border-bottom: 2px solid #38bdf8 !important;
+  }
+
+  body.printing-student-idcard .id-card-name {
+    color: #0f172a !important;
+  }
+
+  body.printing-student-idcard .id-card-details {
+    background: #ffffff !important;
+  }
+
+  body.printing-student-idcard .id-card-label {
+    color: #64748b !important;
+  }
+
+  body.printing-student-idcard .id-card-value {
+    color: #334155 !important;
+  }
+
+  body.printing-student-idcard .id-card-footer {
+    background: #f8fafc !important;
+    border-top: 1px dashed #cbd5e1 !important;
+  }
+
   body.printing-student-idcard .id-card-barcode-lines {
-    background: repeating-linear-gradient(90deg,
-        #000 0px,
-        #000 2px,
-        #fff 2px,
-        #fff 4px) !important;
+    background: repeating-linear-gradient(
+      90deg,
+      #000,
+      #000 2px,
+      transparent 2px,
+      transparent 4px,
+      #000 4px,
+      #000 5px,
+      transparent 5px,
+      transparent 7px
+    ) !important;
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
   }
@@ -12696,3 +12824,446 @@ body.dark-theme .chat-bubble-user {
 /* ==================================================================
    END DASHBOARD ENHANCEMENTS
    ================================================================== */
+
+/* Student Form Validation Styles */
+.was-validated .form-control-admin:invalid,
+.form-control-admin.is-invalid {
+  border-color: #dc3545 !important;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' width='12' height='12' fill='none' stroke='%23dc3545'%3e%3ccircle cx='6' cy='6' r='4.5'/%3e%3cpath stroke-linejoin='round' d='M5.8 3.6h.4L6 6.5z'/%3e%3ccircle cx='6' cy='8.2' r='.6' fill='%23dc3545' stroke='none'/%3e%3c/svg%3e") !important;
+  background-repeat: no-repeat !important;
+  background-position: right calc(0.375em + 0.1875rem) center !important;
+  background-size: calc(0.75em + 0.375rem) calc(0.75em + 0.375rem) !important;
+  padding-right: calc(1.5em + 0.75rem) !important;
+}
+
+.was-validated .form-control-admin:valid,
+.form-control-admin.is-valid {
+  border-color: #198754 !important;
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23198754' d='M2.3 6.73L.6 4.53c-.4-1.04.46-1.4 1.1-.8l1.1 1.4 3.4-3.8c.6-.63 1.6-.27 1.2.7l-4 4.6c-.43.5-.8.4-1.1.1z'/%3e%3c/svg%3e") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 10px center !important;
+  background-size: 14px !important;
+  padding-right: 34px !important;
+}
+
+/* Input group horizontal alignment for form-control-admin */
+.input-group {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+}
+
+.input-group > .form-control-admin.w-25 {
+  width: 25% !important;
+  flex: 0 0 25% !important;
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+.input-group > .form-control-admin.w-75 {
+  width: 75% !important;
+  flex: 0 0 75% !important;
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+  border-left: 1px solid var(--border) !important;
+}
+
+/* Fix toggle knob alignment in settings rows when checked */
+.settings-toggle-row .form-check-input[type="checkbox"]:checked::after {
+  left: 4px !important;
+}
+
+/* Global Search Overlay */
+.search-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(15, 15, 25, 0.4);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 10vh;
+}
+
+.search-modal-card {
+  width: 100%;
+  max-width: 600px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: 70vh;
+  animation: searchFadeIn 0.2s ease-out;
+}
+
+@keyframes searchFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.search-modal-header {
+  display: flex;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  gap: 0.75rem;
+}
+
+.search-modal-icon {
+  font-size: 1.25rem;
+  color: var(--text-secondary);
+}
+
+#globalSearchInput {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 1rem;
+  color: var(--text-primary);
+  font-family: var(--font-primary);
+}
+
+#globalSearchInput::placeholder {
+  color: var(--text-muted);
+}
+
+.search-modal-close {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: var(--radius-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.search-modal-close:hover {
+  background: var(--bg-sec);
+  color: var(--text-primary);
+}
+
+.search-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem;
+}
+
+.search-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.search-result-item {
+  display: flex;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  text-decoration: none !important;
+  font-size: var(--text-sm);
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.search-result-item:hover, .search-result-item.active {
+  background: var(--theme-secondary-light);
+  color: var(--accent) !important;
+}
+
+.search-result-item i {
+  margin-right: 0.75rem;
+  font-size: 1.1rem;
+  color: var(--text-muted);
+}
+
+.search-result-item:hover i, .search-result-item.active i {
+  color: var(--accent);
+}
+
+.search-no-results {
+  padding: 2rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+}
+
+.search-no-results i {
+  font-size: 2rem;
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.search-modal-footer {
+  padding: 0.5rem 1.25rem;
+  border-top: 1px solid var(--border);
+  background: var(--bg-sec);
+  display: flex;
+  justify-content: flex-end;
+  font-size: var(--text-xxs);
+  color: var(--text-muted);
+}
+
+.search-modal-footer kbd {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xs);
+  padding: 1px 4px;
+  margin: 0 2px;
+}
+
+/* ==================================================================
+   Professional CBSE-style Admission Form Styles (Print Optimized)
+   ================================================================== */
+@media print {
+  body.admission-print-view {
+    background: #ffffff !important;
+    color: #000000 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-family: 'Poppins', 'Inter', sans-serif !important;
+    font-size: 11px !important;
+  }
+  .app-layout, .main-wrapper, .app-topbar, .app-sidebar, .footer {
+    display: none !important;
+  }
+  .admission-print-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+  }
+}
+
+.admission-print-view {
+  background: #f1f5f9;
+  padding: 2rem 1rem;
+  color: #1e293b;
+  font-family: 'Poppins', sans-serif;
+}
+
+.admission-print-container {
+  max-width: 850px;
+  margin: 0 auto;
+  background: #ffffff;
+  padding: 3rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  position: relative;
+}
+
+.admission-print-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid #0f172a;
+  padding-bottom: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.admission-print-logo-section {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.admission-print-logo {
+  width: 80px;
+  height: 80px;
+  object-fit: contain;
+}
+
+.admission-print-logo-placeholder {
+  width: 80px;
+  height: 80px;
+  background: #f1f5f9;
+  border: 2px dashed #cbd5e1;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 2rem;
+  color: #64748b;
+}
+
+.admission-print-school-info h2 {
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin: 0 0 0.25rem 0;
+  color: #0f172a;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.admission-print-school-info p {
+  margin: 0 0 0.15rem 0;
+  font-size: 0.75rem;
+  color: #475569;
+}
+
+.admission-print-photo-container {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.admission-print-photo-box {
+  width: 110px;
+  height: 140px;
+  border: 1px solid #94a3b8;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 0.65rem;
+  color: #64748b;
+  background: #f8fafc;
+  line-height: 1.3;
+}
+
+.admission-print-photo-box img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.admission-print-title {
+  text-align: center;
+  margin: 1.5rem 0;
+  border-top: 1px solid #cbd5e1;
+  border-bottom: 1px solid #cbd5e1;
+  padding: 0.5rem 0;
+}
+
+.admission-print-title h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #0f172a;
+}
+
+/* Formal CBSE Section blocks */
+.admission-form-section {
+  margin-bottom: 1.5rem;
+}
+
+.admission-section-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #ffffff;
+  background: #0f172a;
+  padding: 0.4rem 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 0.5rem;
+  border-radius: 2px;
+}
+
+.admission-grid-table {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  border: 1px solid #cbd5e1;
+  border-bottom: none;
+  border-right: none;
+  background: #ffffff;
+}
+
+.admission-grid-cell {
+  display: flex;
+  border-bottom: 1px solid #cbd5e1;
+  border-right: 1px solid #cbd5e1;
+  font-size: 0.75rem;
+  min-height: 2rem;
+}
+
+.admission-cell-label {
+  width: 40%;
+  font-weight: 600;
+  color: #334155;
+  background: #f8fafc;
+  padding: 0.5rem;
+  border-right: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+}
+
+.admission-cell-value {
+  width: 60%;
+  padding: 0.5rem;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  word-break: break-word;
+}
+
+/* Declaration Block */
+.admission-declaration-section {
+  margin-top: 2rem;
+  font-size: 0.7rem;
+  color: #475569;
+  line-height: 1.5;
+  border: 1px solid #cbd5e1;
+  padding: 1rem;
+  background: #f8fafc;
+  border-radius: 4px;
+}
+
+.admission-declaration-title {
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #0f172a;
+  margin-bottom: 0.5rem;
+}
+
+.admission-print-signatures {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 3.5rem;
+  padding-top: 0.5rem;
+}
+
+.admission-print-sig-line {
+  border-top: 1px solid #475569;
+  width: 25%;
+  text-align: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #334155;
+  padding-top: 0.25rem;
+}
+
+/* Ensure proper high contrast text colors over the dark ID card header background */
+.id-card-header .id-card-school-name {
+  color: #ffffff !important;
+}
+
+.id-card-header .id-card-tag {
+  color: #7dd3fc !important; /* Lighter sky blue for enhanced readability */
+}
+
+
+
+

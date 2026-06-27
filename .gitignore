@@ -28,3 +28,9 @@ node_modules/
 
 # Composer
 vendor/
+
+# Database session files
+schoolerp.session.sql
+
+# Documentation
+README.md

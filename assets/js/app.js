@@ -812,7 +812,63 @@ document.addEventListener("DOMContentLoaded", () => {
       lastNameInput.addEventListener("input", checkDuplicateStudent);
     if (dobInput) dobInput.addEventListener("change", checkDuplicateStudent);
 
-    // Front-end Form validation
+    // Helper to dynamically toggle parent required state based on input presence
+    function updateConditionalParentRequired(form) {
+      const fatherInput = form.querySelector('[name="father_name"]');
+      const motherInput = form.querySelector('[name="mother_name"]');
+      const guardianInput = form.querySelector('[name="guardian_name"]');
+      const guardianMobileInput = form.querySelector('[name="guardian_mobile"]');
+      const guardianAddressInput = form.querySelector('[name="guardian_address"]');
+
+      if (!fatherInput || !motherInput || !guardianInput) return;
+
+      const fatherVal = fatherInput.value.trim();
+      const motherVal = motherInput.value.trim();
+
+      if (!fatherVal && !motherVal) {
+        guardianInput.required = true;
+        if (guardianMobileInput) guardianMobileInput.required = true;
+        if (guardianAddressInput) guardianAddressInput.required = true;
+        fatherInput.required = false;
+        motherInput.required = false;
+      } else {
+        guardianInput.required = false;
+        if (guardianMobileInput) guardianMobileInput.required = false;
+        if (guardianAddressInput) guardianAddressInput.required = false;
+        // If one parent name is entered, require that parent's name, but make the other optional!
+        fatherInput.required = (fatherVal !== "");
+        motherInput.required = (motherVal !== "");
+      }
+    }
+
+    function setupParentValidation(form) {
+      const inputs = form.querySelectorAll(
+        '[name="father_name"], [name="mother_name"], [name="guardian_name"]'
+      );
+      inputs.forEach((input) => {
+        input.addEventListener("input", () => {
+          updateConditionalParentRequired(form);
+        });
+      });
+      updateConditionalParentRequired(form);
+    }
+
+    if (addForm) setupParentValidation(addForm);
+
+    const editForm = document.getElementById("editStudentForm");
+    if (editForm) setupParentValidation(editForm);
+
+    // Clear custom is-invalid class on user input
+    document.querySelectorAll(".form-control-admin, textarea, select").forEach((el) => {
+      el.addEventListener("input", function () {
+        this.classList.remove("is-invalid");
+      });
+      el.addEventListener("change", function () {
+        this.classList.remove("is-invalid");
+      });
+    });
+
+    // Front-end Form validation for Add Student
     if (addForm) {
       addForm.addEventListener("submit", function (e) {
         // Automatically populate district input to match city
@@ -822,341 +878,110 @@ document.addEventListener("DOMContentLoaded", () => {
           districtInput.value = cityInput.value.trim();
         }
 
-        // Required Student Info
-        const firstName =
-          document.getElementById("student_first_name")?.value.trim() || "";
-        if (firstName.length < 2) {
-          e.preventDefault();
-          Swal.fire(
-            "Validation Error",
-            "Student Name (First Name) must be at least 2 characters.",
-            "error",
-          );
-          return;
-        }
+        // Dynamic parent checks update
+        updateConditionalParentRequired(addForm);
 
-        const dob = dobInput?.value || "";
-        if (!dob) {
+        // Native HTML5 browser validation check
+        if (!addForm.checkValidity()) {
           e.preventDefault();
-          Swal.fire("Validation Error", "Date of Birth is required.", "error");
-          return;
-        }
-        if (new Date(dob) > new Date()) {
-          e.preventDefault();
-          Swal.fire(
-            "Validation Error",
-            "Date of Birth cannot be a future date.",
-            "error",
-          );
-          return;
-        }
+          e.stopPropagation();
+          addForm.classList.add("was-validated");
 
-        const adDateVal =
-          addForm.querySelector('input[name="admission_date"]')?.value || "";
-        if (!adDateVal) {
-          e.preventDefault();
-          Swal.fire("Validation Error", "Admission Date is required.", "error");
-          return;
-        }
-        if (new Date(adDateVal) < new Date(dob)) {
-          e.preventDefault();
-          Swal.fire(
-            "Validation Error",
-            "Admission Date cannot be before Date of Birth.",
-            "error",
-          );
-          return;
-        }
-
-        const classVal = classSelect?.value || "";
-        if (!classVal) {
-          e.preventDefault();
-          Swal.fire("Validation Error", "Class is required.", "error");
-          return;
-        }
-
-        const sectionSelect = document.getElementById("student_section_select");
-        const sectionVal = sectionSelect?.value || "";
-        if (!sectionVal) {
-          e.preventDefault();
-          Swal.fire("Validation Error", "Section is required.", "error");
-          return;
-        }
-
-        const sessionSelect = addForm.querySelector(
-          'select[name="session_id"]',
-        );
-        const sessionVal = sessionSelect?.value || "";
-        if (!sessionVal) {
-          e.preventDefault();
-          Swal.fire(
-            "Validation Error",
-            "Academic Session is required.",
-            "error",
-          );
-          return;
-        }
-
-        // Parent / Guardian Details
-        const fatherName =
-          addForm.querySelector('input[name="father_name"]')?.value.trim() ||
-          "";
-        const motherName =
-          addForm.querySelector('input[name="mother_name"]')?.value.trim() ||
-          "";
-        const guardianName =
-          addForm.querySelector('input[name="guardian_name"]')?.value.trim() ||
-          "";
-
-        if (!fatherName && !motherName) {
-          const guardianMobile =
-            addForm
-              .querySelector('input[name="guardian_mobile"]')
-              ?.value.trim() || "";
-          const guardianAddress =
-            addForm
-              .querySelector('input[name="guardian_address"]')
-              ?.value.trim() || "";
-          if (!guardianName || !guardianMobile || !guardianAddress) {
-            e.preventDefault();
-            Swal.fire(
-              "Validation Error",
-              "Guardian Name, Mobile, and Address are required if Parent details are unavailable.",
-              "error",
-            );
-            return;
+          const firstInvalid = addForm.querySelector(":invalid");
+          if (firstInvalid) {
+            firstInvalid.scrollIntoView({ behavior: "smooth", block: "center" });
+            firstInvalid.focus();
           }
-        } else {
-          if (!fatherName) {
-            e.preventDefault();
-            Swal.fire(
-              "Validation Error",
-              "Father's Name is required.",
-              "error",
-            );
-            return;
-          }
-          if (!motherName) {
-            e.preventDefault();
-            Swal.fire(
-              "Validation Error",
-              "Mother's Name is required.",
-              "error",
-            );
-            return;
-          }
-        }
 
-        // Mobile validation
-        const primaryMobile =
-          addForm.querySelector('input[name="mobile_no"]')?.value.trim() || "";
-        if (!primaryMobile) {
-          e.preventDefault();
-          Swal.fire("Validation Error", "Mobile Number is required.", "error");
-          return;
-        }
-        if (!/^\d{10}$/.test(primaryMobile)) {
-          e.preventDefault();
           Swal.fire(
             "Validation Error",
-            "Mobile Number must be a valid 10-digit Indian number.",
-            "error",
+            "Please check the highlighted fields and correct the errors before saving.",
+            "error"
           );
           return;
         }
 
-        const alternateMobile =
-          addForm.querySelector('input[name="alternate_no"]')?.value.trim() ||
-          "";
-        if (alternateMobile && !/^\d{10}$/.test(alternateMobile)) {
+        // Custom validation: DOB and Admission Date checks
+        const dobVal = dobInput?.value || "";
+        const adDateVal = addForm.querySelector('input[name="admission_date"]')?.value || "";
+
+        if (dobVal && new Date(dobVal) > new Date()) {
           e.preventDefault();
-          Swal.fire(
-            "Validation Error",
-            "Alternate Mobile Number must be a valid 10-digit Indian number if entered.",
-            "error",
-          );
+          dobInput.classList.add("is-invalid");
+          Swal.fire("Validation Error", "Date of Birth cannot be a future date.", "error");
           return;
         }
-
-        // Email validation
-        const emailVal =
-          addForm.querySelector('input[name="email"]')?.value.trim() || "";
-        if (emailVal && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailVal)) {
+        if (dobVal && adDateVal && new Date(adDateVal) < new Date(dobVal)) {
           e.preventDefault();
-          Swal.fire(
-            "Validation Error",
-            "Please enter a valid Email address format.",
-            "error",
-          );
+          const adDateInput = addForm.querySelector('input[name="admission_date"]');
+          if (adDateInput) adDateInput.classList.add("is-invalid");
+          Swal.fire("Validation Error", "Admission Date cannot be before Date of Birth.", "error");
           return;
-        }
-
-        // Aadhaar validation
-        const aadhaarVal =
-          addForm.querySelector('input[name="aadhar_no"]')?.value.trim() || "";
-        if (aadhaarVal && !/^\d{12}$/.test(aadhaarVal)) {
-          e.preventDefault();
-          Swal.fire(
-            "Validation Error",
-            "Aadhaar Number must be exactly 12 digits.",
-            "error",
-          );
-          return;
-        }
-
-        // Address validation
-        const currentAddr =
-          addForm.querySelector('textarea[name="address"]')?.value.trim() || "";
-        const city =
-          addForm.querySelector('input[name="city"]')?.value.trim() || "";
-        const district =
-          addForm.querySelector('input[name="district"]')?.value.trim() || "";
-        const state =
-          addForm.querySelector('input[name="state"]')?.value.trim() || "";
-        const pincode =
-          addForm.querySelector('input[name="pincode"]')?.value.trim() || "";
-
-        if (!currentAddr || !city || !district || !state || !pincode) {
-          e.preventDefault();
-          Swal.fire(
-            "Validation Error",
-            "Current Address, City/Village, District, State, and PIN Code are required.",
-            "error",
-          );
-          return;
-        }
-        if (!/^\d{6}$/.test(pincode)) {
-          e.preventDefault();
-          Swal.fire(
-            "Validation Error",
-            "PIN Code must be a valid 6-digit Indian PIN code.",
-            "error",
-          );
-          return;
-        }
-
-        // Category Verification
-        const categoryVal =
-          addForm.querySelector('input[name="category"]')?.value.trim() || "";
-        if (!categoryVal) {
-          e.preventDefault();
-          Swal.fire("Validation Error", "Category is required.", "error");
-          return;
-        }
-
-        // RTE Logic check
-        let isRte = false;
-        if (rteRadios) {
-          rteRadios.forEach((radio) => {
-            if (radio.checked && radio.value === "yes") {
-              isRte = true;
-            }
-          });
         }
 
         // Document validations
-        const photoFile = addForm.querySelector('input[name="photo"]')
-          ?.files[0];
-        const dobCertFile = addForm.querySelector(
-          'input[name="dob_certificate"]',
-        )?.files[0];
-        const aadharFile = addForm.querySelector('input[name="aadhar_file"]')
-          ?.files[0];
-        const catCertFile = addForm.querySelector(
-          'input[name="category_certificate"]',
-        )?.files[0];
+        const photoInput = addForm.querySelector('input[name="photo"]');
+        const dobCertInput = addForm.querySelector('input[name="dob_certificate"]');
+        const aadharInput = addForm.querySelector('input[name="aadhar_no"]');
+        const aadharFileInput = addForm.querySelector('input[name="aadhar_file"]');
+        const catCertInput = addForm.querySelector('input[name="category_certificate"]');
+        const categoryInput = addForm.querySelector('input[name="category"]');
 
-        if (!photoFile) {
-          e.preventDefault();
-          Swal.fire(
-            "Validation Error",
-            "Passport-size Student Photo is required.",
-            "error",
-          );
-          return;
-        }
-        if (!dobCertFile) {
-          e.preventDefault();
-          Swal.fire(
-            "Validation Error",
-            "Birth Certificate document is required.",
-            "error",
-          );
-          return;
-        }
-        if (aadhaarVal && !aadharFile) {
-          e.preventDefault();
-          Swal.fire(
-            "Validation Error",
-            "Aadhaar Card document upload is required when Aadhaar Number is provided.",
-            "error",
-          );
-          return;
-        }
+        const isRteChecked = addForm.querySelector('input[name="is_rte"]:checked')?.value === 'yes';
+        const isBplChecked = addForm.querySelector('input[name="is_bpl"]:checked')?.value === 'yes';
 
-        // RTE mandatory uploads
-        if (isRte) {
-          if (!aadharFile) {
+        const photoSelected = photoInput && photoInput.files.length > 0;
+        const dobCertSelected = dobCertInput && dobCertInput.files.length > 0;
+        const aadharFileSelected = aadharFileInput && aadharFileInput.files.length > 0;
+        const catCertSelected = catCertInput && catCertInput.files.length > 0;
+
+        if (!photoSelected) {
+          e.preventDefault();
+          if (photoInput) photoInput.classList.add("is-invalid");
+          Swal.fire("Validation Error", "Passport-size Student Photo is required.", "error");
+          return;
+        }
+        if (!dobCertSelected) {
+          e.preventDefault();
+          if (dobCertInput) dobCertInput.classList.add("is-invalid");
+          Swal.fire("Validation Error", "Birth Certificate document is required.", "error");
+          return;
+        }
+        if (aadharInput && aadharInput.value.trim() && !aadharFileSelected) {
+          e.preventDefault();
+          if (aadharFileInput) aadharFileInput.classList.add("is-invalid");
+          Swal.fire("Validation Error", "Aadhaar Card document upload is required when Aadhaar Number is provided.", "error");
+          return;
+        }
+        if (isRteChecked) {
+          if (!aadharFileSelected) {
             e.preventDefault();
-            Swal.fire(
-              "Validation Error",
-              "Aadhaar Card document upload is mandatory for RTE beneficiaries.",
-              "error",
-            );
+            if (aadharFileInput) aadharFileInput.classList.add("is-invalid");
+            Swal.fire("Validation Error", "Aadhaar Card document upload is mandatory for RTE beneficiaries.", "error");
             return;
           }
-          if (!dobCertFile) {
+          if (!dobCertSelected) {
             e.preventDefault();
-            Swal.fire(
-              "Validation Error",
-              "Birth Certificate document upload is mandatory for RTE beneficiaries.",
-              "error",
-            );
+            if (dobCertInput) dobCertInput.classList.add("is-invalid");
+            Swal.fire("Validation Error", "Birth Certificate document upload is mandatory for RTE beneficiaries.", "error");
             return;
           }
         }
-
-        // Caste Certificate if SC/ST/OBC
-        if (["SC", "ST", "OBC"].includes(categoryVal) && !catCertFile) {
+        const categoryVal = categoryInput ? categoryInput.value.trim().toUpperCase() : "";
+        if (["SC", "ST", "OBC"].includes(categoryVal) && !catCertSelected) {
           e.preventDefault();
-          Swal.fire(
-            "Validation Error",
-            "Caste Certificate document upload is required for SC/ST/OBC reservation categories.",
-            "error",
-          );
+          if (catCertInput) catCertInput.classList.add("is-invalid");
+          Swal.fire("Validation Error", "Caste Certificate document upload is required for SC/ST/OBC reservation categories.", "error");
+          return;
+        }
+        if ((categoryVal === "EWS" || isBplChecked) && !catCertSelected) {
+          e.preventDefault();
+          if (catCertInput) catCertInput.classList.add("is-invalid");
+          Swal.fire("Validation Error", "Income Certificate (upload as Category Certificate) is required for EWS/BPL reservation status.", "error");
           return;
         }
 
-        // Income Certificate if EWS or BPL
-        let isBpl = false;
-        const bplRadios = addForm.querySelectorAll('input[name="is_bpl"]');
-        if (bplRadios) {
-          bplRadios.forEach((radio) => {
-            if (radio.checked && radio.value === "yes") isBpl = true;
-          });
-        }
-        if ((categoryVal === "EWS" || isBpl) && !catCertFile) {
-          e.preventDefault();
-          Swal.fire(
-            "Validation Error",
-            "Income Certificate (upload as Category Certificate) is required for EWS/BPL reservation status.",
-            "error",
-          );
-          return;
-        }
-
-        // Fee structure existence check
-        const classId = classSelect?.value;
-        const fees = feeData[classId] || [];
-        if (fees.length === 0) {
-          e.preventDefault();
-          Swal.fire(
-            "Validation Error",
-            "Prevent Admission: No active fee structure is defined for this class.",
-            "error",
-          );
-          return;
-        }
+        // Fee structure existence check removed (can be created later)
 
         // Duplicate Combination check - warn and block if not checked bypass
         if (!warningContainer.classList.contains("d-none")) {
@@ -1176,6 +1001,128 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Success - disable button to prevent double submit
         const submitBtn = addForm.querySelector('button[type="submit"]');
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.innerHTML =
+            '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Saving...';
+        }
+      });
+    }
+
+    // Front-end Form validation for Edit Student
+    if (editForm) {
+      editForm.addEventListener("submit", function (e) {
+        // Dynamic parent checks update
+        updateConditionalParentRequired(editForm);
+
+        // Native HTML5 browser validation check
+        if (!editForm.checkValidity()) {
+          e.preventDefault();
+          e.stopPropagation();
+          editForm.classList.add("was-validated");
+
+          const firstInvalid = editForm.querySelector(":invalid");
+          if (firstInvalid) {
+            firstInvalid.scrollIntoView({ behavior: "smooth", block: "center" });
+            firstInvalid.focus();
+          }
+
+          Swal.fire(
+            "Validation Error",
+            "Please check the highlighted fields and correct the errors before saving.",
+            "error"
+          );
+          return;
+        }
+
+        // Custom validation: DOB and Admission Date checks
+        const editDobInput = editForm.querySelector('#edit_dob');
+        const dobVal = editDobInput?.value || "";
+        const adDateVal = editForm.querySelector('input[name="admission_date"]')?.value || "";
+
+        if (dobVal && new Date(dobVal) > new Date()) {
+          e.preventDefault();
+          if (editDobInput) editDobInput.classList.add("is-invalid");
+          Swal.fire("Validation Error", "Date of Birth cannot be a future date.", "error");
+          return;
+        }
+        if (dobVal && adDateVal && new Date(adDateVal) < new Date(dobVal)) {
+          e.preventDefault();
+          const adDateInput = editForm.querySelector('input[name="admission_date"]');
+          if (adDateInput) adDateInput.classList.add("is-invalid");
+          Swal.fire("Validation Error", "Admission Date cannot be before Date of Birth.", "error");
+          return;
+        }
+
+        // Document validations in edit mode
+        const editPhotoInput = editForm.querySelector('[name="photo"]');
+        const editDobCertInput = editForm.querySelector('[name="dob_certificate"]');
+        const editAadharInput = editForm.querySelector('[name="aadhar_no"]');
+        const editAadharFileInput = editForm.querySelector('[name="aadhar_file"]');
+        const editCatCertInput = editForm.querySelector('[name="category_certificate"]');
+        const editCategoryInput = editForm.querySelector('[name="category"]');
+
+        const editIsRteChecked = editForm.querySelector('input[name="is_rte"]:checked')?.value === 'yes';
+        const editIsBplChecked = editForm.querySelector('input[name="is_bpl"]:checked')?.value === 'yes';
+
+        const currentPhotoExists = document.getElementById("edit_photo_help")?.innerHTML.includes("Current:");
+        const currentDobCertExists = document.getElementById("edit_dob_cert_help")?.innerHTML.includes("Current:");
+        const currentAadharExists = document.getElementById("edit_aadhar_file_help")?.innerHTML.includes("Current:");
+        const currentCatCertExists = document.getElementById("edit_category_certificate_help")?.innerHTML.includes("Current:");
+
+        const photoSelected = editPhotoInput && editPhotoInput.files.length > 0;
+        const dobCertSelected = editDobCertInput && editDobCertInput.files.length > 0;
+        const aadharFileSelected = editAadharFileInput && editAadharFileInput.files.length > 0;
+        const catCertSelected = editCatCertInput && editCatCertInput.files.length > 0;
+
+        if (!currentPhotoExists && !photoSelected) {
+          e.preventDefault();
+          if (editPhotoInput) editPhotoInput.classList.add("is-invalid");
+          Swal.fire("Validation Error", "Passport-size Student Photo is required.", "error");
+          return;
+        }
+        if (!currentDobCertExists && !dobCertSelected) {
+          e.preventDefault();
+          if (editDobCertInput) editDobCertInput.classList.add("is-invalid");
+          Swal.fire("Validation Error", "Birth Certificate document is required.", "error");
+          return;
+        }
+        if (editAadharInput && editAadharInput.value.trim() && !currentAadharExists && !aadharFileSelected) {
+          e.preventDefault();
+          if (editAadharFileInput) editAadharFileInput.classList.add("is-invalid");
+          Swal.fire("Validation Error", "Aadhaar Card document upload is required when Aadhaar Number is provided.", "error");
+          return;
+        }
+        if (editIsRteChecked) {
+          if (!currentAadharExists && !aadharFileSelected) {
+            e.preventDefault();
+            if (editAadharFileInput) editAadharFileInput.classList.add("is-invalid");
+            Swal.fire("Validation Error", "Aadhaar Card document upload is mandatory for RTE beneficiaries.", "error");
+            return;
+          }
+          if (!currentDobCertExists && !dobCertSelected) {
+            e.preventDefault();
+            if (editDobCertInput) editDobCertInput.classList.add("is-invalid");
+            Swal.fire("Validation Error", "Birth Certificate document upload is mandatory for RTE beneficiaries.", "error");
+            return;
+          }
+        }
+        const categoryVal = editCategoryInput ? editCategoryInput.value.trim().toUpperCase() : "";
+        if (["SC", "ST", "OBC"].includes(categoryVal) && !currentCatCertExists && !catCertSelected) {
+          e.preventDefault();
+          if (editCatCertInput) editCatCertInput.classList.add("is-invalid");
+          Swal.fire("Validation Error", "Caste Certificate document upload is required for SC/ST/OBC reservation categories.", "error");
+          return;
+        }
+        if ((categoryVal === "EWS" || editIsBplChecked) && !currentCatCertExists && !catCertSelected) {
+          e.preventDefault();
+          if (editCatCertInput) editCatCertInput.classList.add("is-invalid");
+          Swal.fire("Validation Error", "Income Certificate (upload as Category Certificate) is required for EWS/BPL reservation status.", "error");
+          return;
+        }
+
+        // Success - disable button to prevent double submit
+        const submitBtn = editForm.querySelector('button[type="submit"]');
         if (submitBtn) {
           submitBtn.disabled = true;
           submitBtn.innerHTML =
@@ -1388,6 +1335,8 @@ document.addEventListener("DOMContentLoaded", () => {
           input.value = val;
         }
       }
+      // Update conditional parent validations after populating fields
+      updateConditionalParentRequired(form);
     }
 
     const parentSelect = document.getElementById("parent_id_select");
@@ -2148,6 +2097,9 @@ document.addEventListener("DOMContentLoaded", () => {
                   );
                 });
               }
+
+              // Update parent conditional validations based on loaded details
+              updateConditionalParentRequired(editForm);
 
               const editModal = new bootstrap.Modal(
                 document.getElementById("editStudentModal"),
@@ -3923,22 +3875,63 @@ document.addEventListener("DOMContentLoaded", () => {
     );
     const selectAllMigrate = document.getElementById("selectAllMigrate");
 
-    function populateSections(classEl, sectionEl) {
-      if (!classEl || !sectionEl) return;
-      classEl.addEventListener("change", function () {
+    function populateTargetSections() {
+      if (!migrateToClass || !migrateToSection) return;
+      const selectedOption = migrateToClass.options[migrateToClass.selectedIndex];
+      migrateToSection.innerHTML = '<option value="">-- Select Section --</option>';
+      if (!selectedOption || !selectedOption.value) return;
+
+      try {
+        const sectionsRaw = selectedOption.getAttribute("data-sections");
+        if (sectionsRaw) {
+          const sections = JSON.parse(sectionsRaw);
+          if (migrateFromSection && migrateFromSection.value === 'all') {
+            const optKeep = document.createElement("option");
+            optKeep.value = "keep_same";
+            optKeep.textContent = "Keep Same Section Structure";
+            migrateToSection.appendChild(optKeep);
+          }
+          sections.forEach((sec) => {
+            const opt = document.createElement("option");
+            opt.value = sec.id;
+            opt.textContent = sec.name;
+            migrateToSection.appendChild(opt);
+          });
+        }
+      } catch (e) {
+        console.error("Error parsing sections JSON", e);
+      }
+    }
+
+    if (migrateFromClass && migrateFromSection) {
+      migrateFromClass.addEventListener("change", function () {
         const selectedOption = this.options[this.selectedIndex];
-        sectionEl.innerHTML = '<option value="">-- Select Section --</option>';
+        migrateFromSection.innerHTML = '<option value="">-- Select Section --</option>';
+        if (migrateStudentsListContainer) {
+          migrateStudentsListContainer.innerHTML =
+            '<div class="text-xs text-muted text-center p-3">Select From Session, Class, and Section to load students.</div>';
+        }
+        if (selectAllMigrate) {
+          selectAllMigrate.checked = false;
+          selectAllMigrate.disabled = true;
+        }
         if (!selectedOption || !selectedOption.value) return;
 
         try {
           const sectionsRaw = selectedOption.getAttribute("data-sections");
           if (sectionsRaw) {
             const sections = JSON.parse(sectionsRaw);
+            if (sections.length > 1) {
+              const optAll = document.createElement("option");
+              optAll.value = "all";
+              optAll.textContent = "All Sections";
+              migrateFromSection.appendChild(optAll);
+            }
             sections.forEach((sec) => {
               const opt = document.createElement("option");
               opt.value = sec.id;
               opt.textContent = sec.name;
-              sectionEl.appendChild(opt);
+              migrateFromSection.appendChild(opt);
             });
           }
         } catch (e) {
@@ -3947,8 +3940,16 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     }
 
-    populateSections(migrateFromClass, migrateFromSection);
-    populateSections(migrateToClass, migrateToSection);
+    if (migrateToClass) {
+      migrateToClass.addEventListener("change", populateTargetSections);
+    }
+
+    if (migrateFromSection) {
+      migrateFromSection.addEventListener("change", function () {
+        loadEligibleStudents();
+        populateTargetSections();
+      });
+    }
 
     function loadEligibleStudents() {
       if (
@@ -3988,13 +3989,16 @@ document.addEventListener("DOMContentLoaded", () => {
               const rollNo = student.roll_no
                 ? ` | Roll: ${student.roll_no}`
                 : "";
+              const secName = student.section_name
+                ? ` | Sec: ${student.section_name}`
+                : "";
               html += `
               <div class="col-md-6">
                 <div class="form-check text-xs">
                   <input class="form-check-input student-migrate-checkbox" type="checkbox" name="student_ids[]" value="${student.id}" id="migrate_student_${student.id}">
                   <label class="form-check-label cursor-pointer" for="migrate_student_${student.id}">
                     <span class="fw-semibold">${escapeHtml(fullName)}</span>
-                    <span class="text-muted text-xxs">(${admNo}${rollNo})</span>
+                    <span class="text-muted text-xxs">(${admNo}${rollNo}${secName})</span>
                   </label>
                 </div>
               </div>
@@ -4018,7 +4022,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const total = studentCheckboxes.length;
                 const checked = migrateStudentsListContainer.querySelectorAll(
                   ".student-migrate-checkbox:checked",
-                ).length;
+                 ).length;
                 selectAllMigrate.checked = total === checked;
               });
             });
@@ -4044,10 +4048,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (migrateFromSession)
       migrateFromSession.addEventListener("change", loadEligibleStudents);
-    if (migrateFromClass)
-      migrateFromClass.addEventListener("change", loadEligibleStudents);
-    if (migrateFromSection)
-      migrateFromSection.addEventListener("change", loadEligibleStudents);
 
     if (selectAllMigrate) {
       selectAllMigrate.addEventListener("change", function () {
@@ -4246,11 +4246,11 @@ document.addEventListener("DOMContentLoaded", () => {
         if (editName) editName.value = this.dataset.name;
         if (editStart) editStart.value = this.dataset.start;
         if (editEnd) editEnd.value = this.dataset.end;
-        
+
         if (checkbox) {
           const isCurrent = parseInt(this.dataset.current) === 1;
           checkbox.checked = isCurrent;
-          
+
           if (isCurrent) {
             checkbox.setAttribute('disabled', 'disabled');
             let hiddenInput = document.getElementById('hidden_edit_is_current');
@@ -4621,3 +4621,174 @@ document.addEventListener("DOMContentLoaded", () => {
     dashAvatar.style.objectFit = "cover";
   }
 });
+
+// ── 5. Global Search Command Palette (Runs on all pages) ──────────────────
+document.addEventListener("DOMContentLoaded", () => {
+  const searchToggleBtn = document.getElementById("mobileSearchToggleBtn");
+  const searchOverlay = document.getElementById("globalSearchOverlay");
+  const searchInput = document.getElementById("globalSearchInput");
+  const searchCloseBtn = document.getElementById("globalSearchCloseBtn");
+  const searchResults = document.getElementById("globalSearchResults");
+
+  if (searchToggleBtn && searchOverlay && searchInput && searchCloseBtn && searchResults) {
+    let searchablePages = [];
+    let activeIndex = -1;
+
+    function buildSearchIndex() {
+      searchablePages = [];
+      const links = document.querySelectorAll(".app-sidebar .sidebar-body a");
+      links.forEach((a) => {
+        const href = a.getAttribute("href");
+        if (!href || href.startsWith("#") || href.includes("logout.php")) return;
+
+        let label = a.querySelector(".nav-label")?.textContent.trim() || a.textContent.trim();
+        let category = "";
+        
+        // Find category/parent if any
+        const dropdownParent = a.closest(".sidebar-nav-dropdown");
+        if (dropdownParent) {
+          category = dropdownParent.querySelector(".sidebar-nav-item[data-bs-toggle='collapse'] .nav-label")?.textContent.trim() || "";
+        }
+
+        // Get icon class if any
+        const iconEl = a.querySelector("i");
+        const iconClass = iconEl ? iconEl.className : "ti ti-link";
+
+        searchablePages.push({
+          label: label,
+          category: category,
+          url: a.href,
+          iconClass: iconClass
+        });
+      });
+    }
+
+    function openSearch() {
+      buildSearchIndex();
+      searchOverlay.classList.remove("d-none");
+      searchInput.value = "";
+      searchResults.innerHTML = "";
+      activeIndex = -1;
+      setTimeout(() => {
+        searchInput.focus();
+      }, 50);
+    }
+
+    function closeSearch() {
+      searchOverlay.classList.add("d-none");
+      searchInput.value = "";
+      searchResults.innerHTML = "";
+      activeIndex = -1;
+    }
+
+    function renderResults(filtered) {
+      searchResults.innerHTML = "";
+      if (filtered.length === 0) {
+        searchResults.innerHTML = `
+          <div class="search-no-results">
+            <i class="ti ti-search-off"></i>
+            <span>No match found</span>
+          </div>
+        `;
+        activeIndex = -1;
+        return;
+      }
+
+      filtered.forEach((page, index) => {
+        const item = document.createElement("a");
+        item.href = page.url;
+        item.className = "search-result-item";
+        
+        const labelText = page.category ? `${page.category} &gt; ${page.label}` : page.label;
+        
+        item.innerHTML = `
+          <i class="${page.iconClass}"></i>
+          <span>${labelText}</span>
+        `;
+        
+        searchResults.appendChild(item);
+      });
+    }
+
+    function performSearch() {
+      const query = searchInput.value.trim().toLowerCase();
+      if (!query) {
+        searchResults.innerHTML = "";
+        activeIndex = -1;
+        return;
+      }
+
+      const filtered = searchablePages.filter((page) => {
+        return (
+          page.label.toLowerCase().includes(query) ||
+          page.category.toLowerCase().includes(query)
+        );
+      });
+
+      renderResults(filtered);
+      activeIndex = -1;
+    }
+
+    searchToggleBtn.addEventListener("click", openSearch);
+    searchCloseBtn.addEventListener("click", closeSearch);
+
+    // Close when clicking outside of the search modal card
+    searchOverlay.addEventListener("click", (e) => {
+      if (e.target === searchOverlay) {
+        closeSearch();
+      }
+    });
+
+    searchInput.addEventListener("input", performSearch);
+
+    // Keyboard navigation (Esc, Arrow keys, Enter)
+    document.addEventListener("keydown", (e) => {
+      // Toggle search with Ctrl+K or Cmd+K
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        if (searchOverlay.classList.contains("d-none")) {
+          openSearch();
+        } else {
+          closeSearch();
+        }
+        return;
+      }
+
+      if (searchOverlay.classList.contains("d-none")) return;
+
+      if (e.key === "Escape") {
+        e.preventDefault();
+        closeSearch();
+      } else if (e.key === "ArrowDown") {
+        e.preventDefault();
+        const items = searchResults.querySelectorAll(".search-result-item");
+        if (items.length > 0) {
+          if (activeIndex >= 0) {
+            items[activeIndex].classList.remove("active");
+          }
+          activeIndex = (activeIndex + 1) % items.length;
+          items[activeIndex].classList.add("active");
+          items[activeIndex].scrollIntoView({ block: "nearest" });
+        }
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        const items = searchResults.querySelectorAll(".search-result-item");
+        if (items.length > 0) {
+          if (activeIndex >= 0) {
+            items[activeIndex].classList.remove("active");
+          }
+          activeIndex = (activeIndex - 1 + items.length) % items.length;
+          items[activeIndex].classList.add("active");
+          items[activeIndex].scrollIntoView({ block: "nearest" });
+        }
+      } else if (e.key === "Enter") {
+        const items = searchResults.querySelectorAll(".search-result-item");
+        if (activeIndex >= 0 && items[activeIndex]) {
+          e.preventDefault();
+          window.location.href = items[activeIndex].href;
+        }
+      }
+    });
+  }
+});
+

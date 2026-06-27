@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Jun 26, 2026 at 03:16 PM
+-- Generation Time: Jun 27, 2026 at 03:23 PM
 -- Server version: 10.4.32-MariaDB
 -- PHP Version: 8.2.12
 
@@ -259,18 +259,6 @@ CREATE TABLE `fee_payments` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Dumping data for table `fee_payments`
---
-
-INSERT INTO `fee_payments` (`id`, `school_id`, `student_id`, `amount_paid`, `fine_amount`, `payment_date`, `payment_method`, `transaction_id`, `screenshot`, `remarks`, `created_at`) VALUES
-(1, 1, 18, 25000.00, 0.00, '2026-06-18 10:00:00', 'Cash', 'TXN1001', NULL, 'First Term tuition fee', '2026-06-20 07:15:35'),
-(2, 1, 18, 5000.00, 0.00, '2026-06-18 10:15:00', 'Cash', 'TXN1002', NULL, 'First Term transport fee', '2026-06-20 07:15:35'),
-(3, 1, 19, 15000.00, 0.00, '2026-06-19 11:30:00', 'UPI', 'TXN1003', NULL, 'Partial Tuition fee payment', '2026-06-20 07:15:35'),
-(4, 1, 20, 6000.00, 0.00, '2026-06-19 14:00:00', 'Cheque', 'TXN1004', NULL, 'Hostel room deposit', '2026-06-20 07:15:35'),
-(5, 1, 21, 25000.00, 0.00, '2026-06-20 09:30:00', 'Bank Transfer', 'TXN1005', NULL, 'Full tuition fee paid', '2026-06-20 07:15:35'),
-(6, 1, 22, 25000.00, 0.00, '2026-06-20 10:45:00', 'UPI', 'TXN1006', NULL, 'Full tuition fee paid via UPI', '2026-06-20 07:15:35');
-
 -- --------------------------------------------------------
 
 --
@@ -460,8 +448,7 @@ CREATE TABLE `parents` (
 --
 
 INSERT INTO `parents` (`id`, `school_id`, `user_id`, `first_name`, `last_name`, `mobile`, `alternate_mobile`, `whatsapp_no`, `email`, `gender`, `parent_type`, `aadhaar_no`, `qualification`, `occupation`, `company_name`, `designation`, `company_address`, `company_phone`, `address`, `pincode`, `city`, `state`, `country`, `status`, `created_at`, `updated_at`, `deleted_at`) VALUES
-(1, 1, 21, 'Ramesh', 'Gupta', '9876543210', '', '', 'ramesh.gupta@example.in', 'male', 'Father', '[Aadhaar Redacted]', 'Post Graduate', 'Engineer', 'Tech Solutions India', 'Senior Manager', '', '', 'A-12, Sector 4, Rohini', '110085', 'New Delhi', 'Delhi', 'India', 'active', '2026-06-17 11:44:54', '2026-06-17 11:45:58', NULL),
-(2, 1, 22, 'Anjali', 'Sharma', '9123456789', '', '', 'anjali.s@example.in', 'female', 'Mother', '[Aadhaar Redacted]', 'Graduate', 'Teacher', 'Global Public School', 'TGT', '', '', 'Flat 402, Brigade Road', '560001', 'Bengaluru', 'Karnataka', 'India', 'active', '2026-06-17 11:44:54', '2026-06-17 11:45:45', NULL);
+(1, 1, 3, 'Ramesh', 'Gupta', '9876543210', '', '9876543210', 'ramesh.gupta@example.com', 'male', 'Father', '123456789014', 'Post Graduate', 'Engineer', 'Tech Solutions India', 'Senior Manager', '', '', 'A-12, Sector 4, Rohini', '110085', 'New Delhi', 'Delhi', 'India', 'active', '2026-06-27 07:32:18', '2026-06-27 07:32:18', NULL);
 
 -- --------------------------------------------------------
 
@@ -474,6 +461,13 @@ CREATE TABLE `parent_students` (
   `parent_id` bigint(20) UNSIGNED NOT NULL,
   `student_id` bigint(20) UNSIGNED NOT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Dumping data for table `parent_students`
+--
+
+INSERT INTO `parent_students` (`id`, `parent_id`, `student_id`) VALUES
+(2, 1, 1);
 
 -- --------------------------------------------------------
 
@@ -748,13 +742,7 @@ CREATE TABLE `students` (
 --
 
 INSERT INTO `students` (`id`, `school_id`, `user_id`, `session_id`, `class_id`, `section_id`, `apaar_id`, `pen_no`, `registration_no_prefix`, `registration_no`, `enrollment_no_prefix`, `enrollment_no`, `sr_no_prefix`, `sr_no`, `general_reg_no`, `admission_no_prefix`, `admission_no`, `admission_date`, `srn_no`, `roll_no`, `stream`, `education_medium`, `photo`, `profile_file`, `referred_by`, `is_rte`, `rte_application_no`, `enrolled_session`, `enrolled_class_id`, `enrolled_year`, `special_needs`, `is_bpl`, `house_block`, `first_name`, `last_name`, `father_name`, `mobile_no`, `alternate_no`, `whatsapp_no`, `email`, `gender`, `blood_group`, `height`, `weight`, `dob`, `place_of_birth`, `dob_certificate`, `dob_certificate_no`, `total_fees`, `total_paid`, `total_discount`, `fine_amount`, `biometric_code`, `status`, `created_at`, `updated_at`, `deleted_at`, `income_app_no`, `caste_app_no`, `domicile_app_no`, `nationality`, `religion`, `category`, `caste`, `category_certificate`, `aadhar_no`, `aadhar_file`, `tc_no`, `tc_issue_date`, `tc_file`, `scholarship_id`, `scholarship_password`, `govt_student_id`, `govt_family_id`, `samagra_id`, `bank_name`, `bank_branch`, `ifsc_code`, `bank_account_holder`, `bank_account_no`, `pan_no`, `mother_name`, `mother_qualification`, `mother_address`, `mother_occupation`, `mother_official_address`, `mother_income`, `mother_email`, `mother_mobile`, `mother_aadhar`, `mother_photo`, `mother_aadhar_file`, `father_qualification`, `father_address`, `father_occupation`, `father_official_address`, `father_income`, `father_email`, `father_mobile`, `father_aadhar`, `father_photo`, `father_aadhar_file`, `guardian_name`, `guardian_qualification`, `guardian_address`, `guardian_occupation`, `guardian_official_address`, `guardian_income`, `guardian_email`, `guardian_mobile`, `guardian_aadhar`, `guardian_photo`, `guardian_aadhar_file`, `transport_route_id`) VALUES
-(18, 1, 23, 1, 2, 2, 'AP-10112233', 'PEN-9988771', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2026', '5001', '2026-04-01', NULL, '101', NULL, 'English', NULL, NULL, NULL, 'no', NULL, NULL, NULL, NULL, 'no', 'no', 'A-Block, Vasant Kunj', 'Kunal', 'Verma', 'Rajiv Verma', '9123456780', NULL, NULL, 'kunal.v@example.in', 'male', 'B+', '135', '32', '2016-05-10', 'New Delhi', NULL, NULL, 60000.00, 30000.00, 0.00, 0.00, NULL, 'active', '2026-06-17 11:46:59', '2026-06-26 07:38:14', NULL, NULL, NULL, NULL, 'INDIAN', 'Hindu', 'General', 'Khatri', NULL, '[Aadhaar Redacted]', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'HDFC Bank', NULL, 'HDFC0001234', NULL, '50100234567891', NULL, 'Meera Verma', NULL, NULL, 'School Teacher', NULL, NULL, NULL, NULL, '[Aadhaar Redacted]', NULL, NULL, NULL, NULL, 'Civil Engineer', NULL, NULL, NULL, NULL, '[Aadhaar Redacted]', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(19, 1, 24, 1, 2, 17, 'AP-22334455', 'PEN-8877662', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2026', '5002', '2026-04-02', NULL, '201', NULL, 'English', NULL, NULL, NULL, 'no', NULL, NULL, NULL, NULL, 'no', 'no', 'C-Wing, Kharadi', 'Sneha', 'Patil', 'Ramesh Patil', '9123456781', NULL, NULL, 'sneha.p@example.in', 'female', 'O+', '140', '35', '2015-08-22', 'Pune', NULL, NULL, 65000.00, 65000.00, 0.00, 0.00, NULL, 'active', '2026-06-17 11:46:59', '2026-06-26 07:38:14', NULL, NULL, NULL, NULL, 'INDIAN', 'Hindu', 'OBC', 'Maratha', NULL, '[Aadhaar Redacted]', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'State Bank of India', NULL, 'SBIN0004567', NULL, '302010405060', NULL, 'Anita Patil', NULL, NULL, 'Homemaker', NULL, NULL, NULL, NULL, '[Aadhaar Redacted]', NULL, NULL, NULL, NULL, 'Business Owner', NULL, NULL, NULL, NULL, '[Aadhaar Redacted]', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 1),
-(20, 1, 25, 1, 3, 3, 'AP-33445566', 'PEN-7766553', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2026', '5003', '2026-04-03', NULL, '301', NULL, 'English', NULL, NULL, NULL, 'no', NULL, NULL, NULL, NULL, 'no', 'no', 'Villa 4, Indiranagar', 'Rohan', 'Iyer', 'Karthik Iyer', '9123456782', NULL, NULL, 'rohan.i@example.in', 'male', 'A-', '145', '38', '2014-11-15', 'Chennai', NULL, NULL, 70000.00, 10000.00, 0.00, 0.00, NULL, 'active', '2026-06-17 11:46:59', '2026-06-26 07:38:14', NULL, NULL, NULL, NULL, 'INDIAN', 'Hindu', 'General', 'Brahmin', NULL, '[Aadhaar Redacted]', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'ICICI Bank', NULL, 'ICIC0000001', NULL, '000101234567', NULL, 'Lakshmi Iyer', NULL, NULL, 'Architect', NULL, NULL, NULL, NULL, '[Aadhaar Redacted]', NULL, NULL, NULL, NULL, 'Cardiologist', NULL, NULL, NULL, NULL, '[Aadhaar Redacted]', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 1),
-(21, 1, 26, 1, 4, 19, 'AP-44556677', 'PEN-6655444', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2026', '5004', '2026-04-04', NULL, '401', NULL, 'English', NULL, NULL, NULL, 'no', NULL, NULL, NULL, NULL, 'no', 'no', 'Sector 17, Block D', 'Priya', 'Singh', 'Vikram Singh', '9123456783', NULL, NULL, 'priya.s@example.in', 'female', 'AB+', '150', '42', '2013-02-18', 'Chandigarh', NULL, NULL, 75000.00, 75000.00, 0.00, 0.00, NULL, 'active', '2026-06-17 11:46:59', '2026-06-26 07:38:14', NULL, NULL, NULL, NULL, 'INDIAN', 'Sikh', 'General', 'Rajput', NULL, '[Aadhaar Redacted]', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'Punjab National Bank', NULL, 'PUNB0123456', NULL, '44556677889900', NULL, 'Suman Singh', NULL, NULL, 'Bank Manager', NULL, NULL, NULL, NULL, '[Aadhaar Redacted]', NULL, NULL, NULL, NULL, 'Army Officer', NULL, NULL, NULL, NULL, '[Aadhaar Redacted]', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 2),
-(22, 1, 27, 1, 6, 6, 'AP-55667788', 'PEN-5544335', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2026', '5005', '2026-04-05', NULL, NULL, NULL, 'English', 'uploads/students/photo_6a3b7ed06bb83.jpeg', NULL, NULL, 'yes', NULL, NULL, NULL, NULL, 'no', 'no', 'Jubilee Hills, Phase 2', 'Aditya', 'Rao', NULL, '9123456784', NULL, NULL, 'aditya.r@example.in', 'male', 'O-', '155', '45', '2012-07-30', 'Hyderabad', NULL, NULL, 25000.00, 0.00, 0.00, 0.00, NULL, 'active', '2026-06-17 11:46:59', '2026-06-26 07:38:14', NULL, NULL, NULL, NULL, 'INDIAN', 'Hindu', 'General', 'Rao', NULL, '[Aadhaar Redacted]', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'Axis Bank', NULL, 'UTIB0007890', NULL, '998877665544', NULL, 'Kavya Rao', NULL, NULL, 'Freelance Writer', NULL, NULL, NULL, NULL, '[Aadhaar Redacted]', NULL, NULL, NULL, NULL, 'Software Developer', NULL, NULL, NULL, NULL, '[Aadhaar Redacted]', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(23, 1, 28, 1, 2, 2, 'APR-998835', 'PEN-887743', 'Prefix', '238', '26', '12345684', '26', '3434350', NULL, '2026', 'ADM-2026-0011', NULL, 'SRN-55443', 'ROLL-Q-112', 'Science', 'English', 'uploads/students/photo_6a34fb4ae94b1.jpg', NULL, 'Direct', 'no', NULL, NULL, 1, NULL, 'no', 'no', NULL, 'Spiderman', 'yadav', NULL, '9545698125', NULL, '9545698125', 'spiderman@gmail.com', 'male', NULL, '160', '62', '2001-08-11', 'Colombia', NULL, 'DOBC-1094', 0.00, 0.00, 0.00, 0.00, 'BIO-S103', 'active', '2026-06-19 08:18:19', '2026-06-26 07:38:14', NULL, NULL, NULL, NULL, 'INDIAN', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'Wonder Women', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'thor', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL),
-(24, 1, 30, 1, 2, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '', 'no', NULL, NULL, NULL, NULL, 'no', 'no', NULL, 'VANSI', 'PANDEY', 'PRANESH', '7007300825', NULL, NULL, NULL, 'female', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0.00, 0.00, 0.00, 0.00, NULL, 'active', '2026-06-26 07:22:03', '2026-06-26 12:52:03', '2026-06-26 09:22:03', NULL, NULL, NULL, 'INDIAN', '', '', NULL, NULL, '', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'JYOTI', NULL, '', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
+(1, 1, 4, 1, 1, 1, 'AP-12345678', 'PEN-123456', '2026', 'REG-1002', '26', 'ENR-88990', '26', 'SR-11223', 'GRN-4455', '2026', '5001', '2026-04-01', 'SRN-7788', '101', 'General', 'English', 'uploads/students/photo_6a3f7e7dd168b.jpeg', 'uploads/students/sample_profile.pdf', NULL, 'no', NULL, '2026-27', 1, '2026', 'no', 'no', NULL, 'Rohan', 'Sharma', 'Ramesh Gupta', '9876543210', '9876543211', '9876543210', 'rohan.sharma@example.com', 'male', 'O+', '125 cm', '28 kg', '2015-08-20', 'New Delhi', 'uploads/students/dob_cert.pdf', 'DOB-2015-9988', 25000.00, 0.00, 0.00, 0.00, 'BIO-101', 'active', '2026-06-27 07:32:18', '2026-06-27 07:40:45', NULL, 'INC-8877', 'CST-6655', 'DOM-4433', 'Indian', 'Hindu', 'General', 'Brahmin', 'uploads/students/cat_cert.pdf', '123456789012', 'uploads/students/aadhar_card.pdf', 'TC-5544', '2026-03-15', 'uploads/students/tc_file.pdf', 'SCH-9988', 'schpass123', 'GOV-5544', 'FAM-3322', 'SAM-1122', 'State Bank of India', 'Noida Sector 22', 'SBIN0001234', 'Rohan Sharma', '12345678901', 'ABCDE1234F', 'Jane Gupta', 'Graduate', 'A-12, Sector 4, Rohini', 'Homemaker', NULL, NULL, 'jane.g@example.com', '9876543212', '123456789013', 'uploads/students/mother_photo.jpg', 'uploads/students/mother_aadhar.pdf', 'Post Graduate', 'A-12, Sector 4, Rohini', 'Engineer', NULL, '1200000', 'ramesh.gupta@example.com', '9876543210', '123456789014', 'uploads/students/father_photo.jpg', 'uploads/students/father_aadhar.pdf', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '', '', NULL);
 
 -- --------------------------------------------------------
 
@@ -775,28 +763,6 @@ CREATE TABLE `student_attendance` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `student_attendance`
---
-
-INSERT INTO `student_attendance` (`id`, `school_id`, `student_id`, `date`, `status`, `check_in`, `check_out`, `leave_type`, `leave_reason`, `created_at`, `updated_at`) VALUES
-(143, 1, 18, '2026-06-01', 'present', '08:30:00', '14:30:00', NULL, NULL, '2026-06-18 06:32:08', '2026-06-18 06:32:08'),
-(144, 1, 18, '2026-06-02', 'present', '08:25:00', '14:35:00', NULL, NULL, '2026-06-18 06:32:08', '2026-06-18 06:32:08'),
-(145, 1, 18, '2026-06-03', 'present', '08:28:00', '14:30:00', NULL, NULL, '2026-06-18 06:32:08', '2026-06-18 06:32:08'),
-(146, 1, 18, '2026-06-04', 'present', '08:31:00', '14:30:00', NULL, NULL, '2026-06-18 06:32:08', '2026-06-18 06:32:08'),
-(147, 1, 18, '2026-06-05', 'present', '08:29:00', '14:30:00', NULL, NULL, '2026-06-18 06:32:08', '2026-06-18 06:32:08'),
-(148, 1, 18, '2026-06-08', 'late', '09:15:00', '14:30:00', NULL, NULL, '2026-06-18 06:32:08', '2026-06-18 06:32:08'),
-(149, 1, 18, '2026-06-09', 'absent', NULL, NULL, NULL, NULL, '2026-06-18 06:32:08', '2026-06-18 06:32:08'),
-(150, 1, 18, '2026-06-10', 'absent', NULL, NULL, NULL, NULL, '2026-06-18 06:32:08', '2026-06-18 06:32:08'),
-(151, 1, 18, '2026-06-11', 'absent', NULL, NULL, NULL, NULL, '2026-06-18 06:32:08', '2026-06-18 06:32:08'),
-(152, 1, 18, '2026-06-12', 'absent', NULL, NULL, NULL, NULL, '2026-06-18 06:32:08', '2026-06-18 06:32:08'),
-(153, 1, 18, '2026-06-13', 'absent', NULL, NULL, NULL, NULL, '2026-06-18 06:32:08', '2026-06-18 06:32:08'),
-(154, 1, 18, '2026-06-14', 'absent', NULL, NULL, NULL, NULL, '2026-06-18 06:32:08', '2026-06-18 06:32:08'),
-(155, 1, 18, '2026-06-15', 'leave', NULL, NULL, 'Sick Leave', 'Fever and cold', '2026-06-18 06:32:08', '2026-06-18 06:32:08'),
-(156, 1, 18, '2026-06-16', 'absent', NULL, NULL, NULL, NULL, '2026-06-18 06:32:08', '2026-06-18 06:32:08'),
-(157, 1, 18, '2026-06-17', 'absent', NULL, NULL, NULL, NULL, '2026-06-18 06:32:08', '2026-06-18 06:32:08'),
-(158, 1, 18, '2026-06-18', 'absent', NULL, NULL, NULL, NULL, '2026-06-18 06:32:08', '2026-06-18 06:32:08');
 
 -- --------------------------------------------------------
 
@@ -822,20 +788,6 @@ CREATE TABLE `student_fee_items` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Dumping data for table `student_fee_items`
---
-
-INSERT INTO `student_fee_items` (`id`, `student_id`, `fee_name`, `fee_type`, `apply_to`, `linked_to`, `amount`, `discount_type`, `discount_amount`, `paid_amount`, `remark`, `is_active`, `route_details`, `created_at`, `updated_at`) VALUES
-(1, 18, 'Tuition Fee', 'Tuition Fee', 'All', 'Student', 25000.00, 'None', 0.00, 25000.00, '', 1, NULL, '2026-06-20 07:15:35', '2026-06-20 07:15:35'),
-(2, 18, 'Transport Fee', 'Transport Fee', 'All', 'Student', 5000.00, 'None', 0.00, 5000.00, '', 1, NULL, '2026-06-20 07:15:35', '2026-06-20 07:15:35'),
-(3, 19, 'Tuition Fee', 'Tuition Fee', 'All', 'Student', 25000.00, 'None', 0.00, 15000.00, '', 1, NULL, '2026-06-20 07:15:35', '2026-06-20 07:15:35'),
-(4, 20, 'Tuition Fee', 'Tuition Fee', 'All', 'Student', 25000.00, 'None', 0.00, 0.00, '', 1, NULL, '2026-06-20 07:15:35', '2026-06-20 07:15:35'),
-(5, 20, 'Hostel Fee', 'Hostel Fee', 'All', 'Student', 12000.00, 'None', 0.00, 6000.00, '', 1, NULL, '2026-06-20 07:15:35', '2026-06-20 07:15:35'),
-(6, 21, 'Tuition Fee', 'Tuition Fee', 'All', 'Student', 25000.00, 'None', 0.00, 25000.00, '', 1, NULL, '2026-06-20 07:15:35', '2026-06-20 07:15:35'),
-(9, 22, 'Tuition Fee', 'Tuition Fee', 'All', 'Student', 25000.00, '', 0.00, 25000.00, '', 1, NULL, '2026-06-24 10:42:47', '2026-06-24 10:42:47'),
-(10, 22, 'Transport Fees', 'Monthly', 'All', NULL, 22800.00, '', 0.00, 0.00, '', 0, 'Route 18 - 0 - 5', '2026-06-24 10:42:47', '2026-06-24 10:42:47');
-
 -- --------------------------------------------------------
 
 --
@@ -857,13 +809,6 @@ CREATE TABLE `student_migrations` (
   `created_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Dumping data for table `student_migrations`
---
-
-INSERT INTO `student_migrations` (`id`, `school_id`, `from_session_id`, `to_session_id`, `from_class_id`, `to_class_id`, `from_section_id`, `to_section_id`, `total_students`, `student_ids`, `migrated_by`, `created_at`) VALUES
-(1, 1, 1, 1, 1, 2, 1, 2, 2, '[18,23]', 'Brighton Admin', '2026-06-24 09:55:27');
-
 -- --------------------------------------------------------
 
 --
@@ -881,18 +826,6 @@ CREATE TABLE `student_qualifications` (
   `subjects` varchar(255) DEFAULT NULL,
   `school_college_name` varchar(150) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
---
--- Dumping data for table `student_qualifications`
---
-
-INSERT INTO `student_qualifications` (`id`, `student_id`, `qualification`, `passing_year`, `roll_no`, `obtained_marks`, `percentage`, `subjects`, `school_college_name`) VALUES
-(7, 22, 'Middle School Class 5', '', '', '', '', '', ''),
-(8, 23, 'Middle School Class 5', '2025', 'ROLL-Q-112', '450', '90', 'English, Math, Science', 'LA Junior Academy'),
-(9, 23, 'Middle School Class 5', '2025', 'ROLL-Q-112', '450', '90', 'English, Math, Science', 'LA Junior Academy'),
-(10, 22, 'Middle School Class 5', '', '', '', '', '', ''),
-(11, 23, 'Middle School Class 5', '2025', 'ROLL-Q-112', '450', '90', 'English, Math, Science', 'LA Junior Academy'),
-(12, 23, 'Middle School Class 5', '2025', 'ROLL-Q-112', '450', '90', 'English, Math, Science', 'LA Junior Academy');
 
 -- --------------------------------------------------------
 
@@ -954,7 +887,7 @@ CREATE TABLE `teachers` (
 --
 
 INSERT INTO `teachers` (`id`, `school_id`, `user_id`, `staff_id`, `joining_date`, `photo`, `first_name`, `last_name`, `email`, `mobile_no`, `alternate_mobile_no`, `whatsapp_no`, `gender`, `dob`, `marital_status`, `spouse_name`, `father_name`, `nationality`, `religion`, `category`, `last_org_name`, `last_job_position`, `exp_years`, `qualifications`, `pincode`, `city`, `state`, `country`, `address`, `bank_acc_holder`, `bank_name`, `bank_ifsc`, `bank_acc_no`, `pan_no`, `pf_acc_no`, `uan_no`, `aadhar_no`, `aadhar_file`, `signature_file`, `designation`, `department`, `biometric_code`, `status`, `deleted_at`, `created_at`, `updated_at`) VALUES
-(1, 1, 3, 'STF001', '2026-06-01', NULL, 'Madhu', 'Singh', 'Madhu@1994', '9876543213', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'INDIAN', NULL, NULL, NULL, NULL, 0, '[]', NULL, NULL, NULL, 'India', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'Primary Teacher', 'Academic', NULL, 'active', NULL, '2026-06-15 10:44:46', '2026-06-18 07:32:37');
+(1, 1, 5, 'TCH-1001', '2025-06-01', 'uploads/teachers/photo_6a3f7d8d12401.jpeg', 'Priya', 'Nair', 'priya.nair@example.com', '9876543220', '', '9876543220', 'female', '1990-05-12', 'Single', '', 'Vasudevan Nair', 'Indian', 'Hindu', 'General', 'Delhi Public School', 'PRT Teacher', 5, '[\"B.Sc\",\"B.Ed\"]', '201301', 'Noida', 'Uttar Pradesh', 'India', 'C-10, Sector 15, Noida', 'Priya Nair', 'State Bank of India', 'SBIN0001234', '998877665544', 'ABCDE9988F', '', '', '123456789015', 'uploads/teachers/aadhar.pdf', 'uploads/teachers/sig.png', 'PRT Teacher', 'Primary Education', 'BIO-T101', 'active', NULL, '2026-06-27 07:32:18', '2026-06-27 07:36:45');
 
 -- --------------------------------------------------------
 
@@ -976,38 +909,6 @@ CREATE TABLE `teacher_attendance` (
   `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
---
--- Dumping data for table `teacher_attendance`
---
-
-INSERT INTO `teacher_attendance` (`id`, `school_id`, `teacher_id`, `date`, `status`, `check_in`, `check_out`, `leave_type`, `leave_reason`, `created_at`, `updated_at`) VALUES
-(1, 1, 1, '2026-06-17', 'present', '08:51:00', '16:21:00', NULL, NULL, '2026-06-17 06:18:41', '2026-06-17 06:18:41'),
-(2, 1, 1, '2026-06-16', 'present', '08:33:00', '16:08:00', NULL, NULL, '2026-06-17 06:18:41', '2026-06-17 06:18:41'),
-(3, 1, 1, '2026-06-15', 'present', '08:31:00', '16:24:00', NULL, NULL, '2026-06-17 06:18:41', '2026-06-17 06:18:41'),
-(4, 1, 1, '2026-06-13', 'present', '08:45:00', '16:10:00', NULL, NULL, '2026-06-17 06:18:41', '2026-06-17 06:18:41'),
-(5, 1, 1, '2026-06-12', 'present', '08:37:00', '16:23:00', NULL, NULL, '2026-06-17 06:18:41', '2026-06-17 06:18:41'),
-(6, 1, 1, '2026-06-11', 'present', '08:57:00', '16:20:00', NULL, NULL, '2026-06-17 06:18:41', '2026-06-17 06:18:41'),
-(7, 1, 1, '2026-06-10', 'present', '08:58:00', '16:02:00', NULL, NULL, '2026-06-17 06:18:41', '2026-06-17 06:18:41'),
-(8, 1, 1, '2026-06-09', 'present', '08:57:00', '16:12:00', NULL, NULL, '2026-06-17 06:18:41', '2026-06-17 06:18:41'),
-(9, 1, 1, '2026-06-08', 'present', '08:31:00', '16:04:00', NULL, NULL, '2026-06-17 06:18:41', '2026-06-17 06:18:41'),
-(10, 1, 1, '2026-06-06', 'present', '08:40:00', '16:11:00', NULL, NULL, '2026-06-17 06:18:41', '2026-06-17 06:18:41'),
-(11, 1, 1, '2026-06-05', 'present', '08:44:00', '16:25:00', NULL, NULL, '2026-06-17 06:18:41', '2026-06-17 06:18:41'),
-(12, 1, 1, '2026-06-04', 'present', '08:32:00', '16:14:00', NULL, NULL, '2026-06-17 06:18:41', '2026-06-17 06:18:41'),
-(13, 1, 1, '2026-06-03', 'late', '09:08:00', '16:00:00', NULL, NULL, '2026-06-17 06:18:41', '2026-06-17 06:18:41'),
-(14, 1, 1, '2026-06-02', 'half_day', '08:33:00', '12:30:00', 'Casual', 'Left early for doctor appointment.', '2026-06-17 06:18:41', '2026-06-17 06:18:41'),
-(15, 1, 1, '2026-06-01', 'late', '09:08:00', '16:00:00', NULL, NULL, '2026-06-17 06:18:41', '2026-06-17 06:18:41'),
-(16, 1, 1, '2026-05-30', 'present', '08:45:00', '16:12:00', NULL, NULL, '2026-06-17 06:18:41', '2026-06-17 06:18:41'),
-(17, 1, 1, '2026-05-29', 'present', '08:57:00', '16:15:00', NULL, NULL, '2026-06-17 06:18:41', '2026-06-17 06:18:41'),
-(18, 1, 1, '2026-05-28', 'present', '08:34:00', '16:23:00', NULL, NULL, '2026-06-17 06:18:41', '2026-06-17 06:18:41'),
-(19, 1, 1, '2026-05-27', 'present', '08:47:00', '16:24:00', NULL, NULL, '2026-06-17 06:18:41', '2026-06-17 06:18:41'),
-(20, 1, 1, '2026-05-26', 'present', '08:33:00', '16:28:00', NULL, NULL, '2026-06-17 06:18:41', '2026-06-17 06:18:41'),
-(21, 1, 1, '2026-05-25', 'present', '08:44:00', '16:30:00', NULL, NULL, '2026-06-17 06:18:41', '2026-06-17 06:18:41'),
-(22, 1, 1, '2026-05-23', 'late', '09:40:00', '16:00:00', NULL, NULL, '2026-06-17 06:18:41', '2026-06-17 06:18:41'),
-(23, 1, 1, '2026-05-22', 'present', '08:34:00', '16:12:00', NULL, NULL, '2026-06-17 06:18:41', '2026-06-17 06:18:41'),
-(24, 1, 1, '2026-05-21', 'present', '08:37:00', '16:17:00', NULL, NULL, '2026-06-17 06:18:41', '2026-06-17 06:18:41'),
-(25, 1, 1, '2026-05-20', 'present', '08:39:00', '16:12:00', NULL, NULL, '2026-06-17 06:18:41', '2026-06-17 06:18:41'),
-(26, 1, 1, '2026-05-19', 'present', '08:52:00', '16:01:00', NULL, NULL, '2026-06-17 06:18:41', '2026-06-17 06:18:41');
-
 -- --------------------------------------------------------
 
 --
@@ -1027,11 +928,7 @@ CREATE TABLE `teacher_classes` (
 --
 
 INSERT INTO `teacher_classes` (`id`, `teacher_id`, `class_id`, `section_id`, `is_class_teacher`) VALUES
-(26, 1, 1, 1, 0),
-(27, 1, 2, 2, 0),
-(28, 1, 3, 3, 0),
-(29, 1, 4, 4, 0),
-(30, 1, 6, 6, 0);
+(1, 1, 1, 1, 1);
 
 -- --------------------------------------------------------
 
@@ -1110,18 +1007,11 @@ CREATE TABLE `users` (
 --
 
 INSERT INTO `users` (`id`, `school_id`, `role_id`, `username`, `first_name`, `last_name`, `email`, `phone`, `alternate_phone`, `password`, `avatar`, `website`, `gender`, `bio`, `dob`, `address`, `pincode`, `city`, `state`, `country`, `status`, `last_login`, `remember_token`, `created_at`, `updated_at`, `deleted_at`) VALUES
-(1, NULL, 1, NULL, 'Abhishek', 'Tyagi', 'admin@google.com', '9057137074', NULL, '$2y$12$bB0r6YBfbGoRMhmZ/cIlXu86YgiTnAII35nZbopg2oAslW7deeddG', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'active', '2026-06-26 10:40:52', NULL, '2026-06-15 09:32:07', '2026-06-26 10:40:52', NULL),
-(2, 1, 2, NULL, 'Brighton', 'Admin', 'school@admin.com', '', '', '$2y$10$h0tIfAZwBu.WSZfEPR48aONFquuGke0KY0WBcMkUO0IVcW1jGRynO', 'avatar_2_1782455765.jpg', '', 'male', '', NULL, '', '', '', '', '', 'active', '2026-06-26 11:08:22', NULL, '2026-06-15 09:57:29', '2026-06-26 11:08:22', NULL),
-(3, 1, 3, 'madhusingh01', 'Madhu', 'Singh', 'Madhu@1994', '9876543213', NULL, '$2y$10$ABLvyUtlKLIzQY1gdi8.jObeyUiTVJsjzfg9yWizaVr.rwmtxYg8S', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'active', NULL, NULL, '2026-06-15 10:44:46', '2026-06-18 07:43:57', NULL),
-(21, 1, 4, 'ramesh_gupta', 'Ramesh', 'Gupta', 'ramesh.gupta@example.in', '9876543210', NULL, '$2y$10$80ST6d.yflpp9W0ZH3PbUuM56Kr8EDoDGET.CowGCFUSV2u/H80hC', NULL, NULL, 'male', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'active', NULL, NULL, '2026-06-17 11:44:54', '2026-06-17 11:45:58', NULL),
-(22, 1, 4, 'anjali_sharma', 'Anjali', 'Sharma', 'anjali.s@example.in', '9123456789', NULL, '$2y$10$80ST6d.yflpp9W0ZH3PbUuM56Kr8EDoDGET.CowGCFUSV2u/H80hC', NULL, NULL, 'female', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'active', NULL, NULL, '2026-06-17 11:44:54', '2026-06-17 11:44:54', NULL),
-(23, 1, 5, 'kunal_verma', 'Kunal', 'Verma', 'kunal.v@example.in', '9123456780', NULL, '$2y$10$80ST6d.yflpp9W0ZH3PbUuM56Kr8EDoDGET.CowGCFUSV2u/H80hC', NULL, NULL, 'male', NULL, '2016-05-10', NULL, NULL, NULL, NULL, NULL, 'active', NULL, NULL, '2026-06-17 11:46:59', '2026-06-25 07:25:18', NULL),
-(24, 1, 5, 'sneha_patil', 'Sneha', 'Patil', 'sneha.p@example.in', '9123456781', NULL, '$2y$10$80ST6d.yflpp9W0ZH3PbUuM56Kr8EDoDGET.CowGCFUSV2u/H80hC', NULL, NULL, 'female', NULL, '2015-08-22', NULL, NULL, NULL, NULL, NULL, 'active', NULL, NULL, '2026-06-17 11:46:59', '2026-06-17 11:46:59', NULL),
-(25, 1, 5, 'rohan_iyer', 'Rohan', 'Iyer', 'rohan.i@example.in', '9123456782', NULL, '$2y$10$80ST6d.yflpp9W0ZH3PbUuM56Kr8EDoDGET.CowGCFUSV2u/H80hC', NULL, NULL, 'male', NULL, '2014-11-15', NULL, NULL, NULL, NULL, NULL, 'active', NULL, NULL, '2026-06-17 11:46:59', '2026-06-17 11:46:59', NULL),
-(26, 1, 5, 'priya_singh', 'Priya', 'Singh', 'priya.s@example.in', '9123456783', NULL, '$2y$10$80ST6d.yflpp9W0ZH3PbUuM56Kr8EDoDGET.CowGCFUSV2u/H80hC', NULL, NULL, 'female', NULL, '2013-02-18', NULL, NULL, NULL, NULL, NULL, 'active', NULL, NULL, '2026-06-17 11:46:59', '2026-06-17 11:46:59', NULL),
-(27, 1, 5, 'aditya_rao', 'Aditya', 'Rao', 'aditya.r@example.in', '9123456784', NULL, '$2y$10$80ST6d.yflpp9W0ZH3PbUuM56Kr8EDoDGET.CowGCFUSV2u/H80hC', NULL, NULL, 'male', NULL, '2012-07-30', NULL, NULL, NULL, NULL, NULL, 'active', NULL, NULL, '2026-06-17 11:46:59', '2026-06-17 11:46:59', NULL),
-(28, 1, 5, 'Spiderman', 'Spiderman', 'yadav', 'spiderman@gmail.com', '9545698125', NULL, '$2y$10$hqeaVz3bCvZD0NsJuL2.geM05LzPXs3CWIom1jdyWqYixKfV/EI/u', NULL, NULL, 'male', NULL, '2001-08-11', NULL, NULL, NULL, NULL, NULL, 'active', NULL, NULL, '2026-06-19 08:18:19', '2026-06-25 11:08:33', NULL),
-(30, 1, 5, 'vansi201', 'VANSI', 'PANDEY', 'vansi201@schoolerp.local', '7007300825', NULL, '$2y$10$7ynbsRe9pjiFNq/jpVOyXe3lQ3280DP5fbkejNGGacqBTzViWPCsa', NULL, NULL, 'female', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'active', NULL, NULL, '2026-06-26 07:22:03', '2026-06-26 12:52:03', '2026-06-26 09:22:03');
+(1, NULL, 1, NULL, 'Abhishek', 'Tyagi', 'admin@google.com', '9057137074', NULL, '$2y$12$bB0r6YBfbGoRMhmZ/cIlXu86YgiTnAII35nZbopg2oAslW7deeddG', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'active', '2026-06-26 13:27:59', NULL, '2026-06-15 09:32:07', '2026-06-26 13:27:59', NULL),
+(2, 1, 2, NULL, 'Brighton', 'Admin', 'school@admin.com', '', '', '$2y$10$h0tIfAZwBu.WSZfEPR48aONFquuGke0KY0WBcMkUO0IVcW1jGRynO', 'avatar_2_1782455765.jpg', '', 'male', '', NULL, '', '', '', '', '', 'active', '2026-06-27 06:25:38', NULL, '2026-06-15 09:57:29', '2026-06-27 06:25:38', NULL),
+(3, 1, 4, 'ramesh_gupta', 'Ramesh', 'Gupta', 'ramesh.gupta@example.com', '9876543210', NULL, '$2y$10$GcojpKIRefehU2zdD5kRWu70weIZERRdYmpJb0LeQtvIxEhrebT2S', NULL, NULL, 'male', NULL, '1982-11-15', 'A-12, Sector 4, Rohini', '110085', 'New Delhi', 'Delhi', 'India', 'active', NULL, NULL, '2026-06-27 07:32:18', '2026-06-27 07:32:18', NULL),
+(4, 1, 5, 'rohan_sharma', 'Rohan', 'Sharma', 'rohan.sharma@example.com', '9876543210', NULL, '$2y$10$ulRjIe5zX2E9kyDMaU9TD.p0VTXtf1834FodOlYbDrxrGwyNFzR26', NULL, NULL, 'male', NULL, '2015-08-20', 'H-402, Sector 22, Noida', '201301', 'Noida', 'Uttar Pradesh', 'India', 'active', NULL, NULL, '2026-06-27 07:32:18', '2026-06-27 07:32:18', NULL),
+(5, 1, 3, 'priya_nair', 'Priya', 'Nair', 'priya.nair@example.com', '9876543220', NULL, '$2y$10$nXHk2Bap/XNyidL6zm3vYu0wxQM8LMoaRd6l4gO0DJKoxUY.DWF7e', 'uploads/teachers/photo_6a3f7d8d12401.jpeg', NULL, 'female', NULL, '1990-05-12', 'C-10, Sector 15, Noida', '201301', 'Noida', 'Uttar Pradesh', 'India', 'active', NULL, NULL, '2026-06-27 07:32:18', '2026-06-27 07:36:45', NULL);
 
 --
 -- Indexes for dumped tables
@@ -1364,13 +1254,13 @@ ALTER TABLE `academic_sessions`
 -- AUTO_INCREMENT for table `admission_form_settings`
 --
 ALTER TABLE `admission_form_settings`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `classes`
 --
 ALTER TABLE `classes`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=17;
 
 --
 -- AUTO_INCREMENT for table `dashboard_todos`
@@ -1400,7 +1290,7 @@ ALTER TABLE `fees_settings`
 -- AUTO_INCREMENT for table `fee_payments`
 --
 ALTER TABLE `fee_payments`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=7;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `leads`
@@ -1430,13 +1320,13 @@ ALTER TABLE `online_fee_payments`
 -- AUTO_INCREMENT for table `parents`
 --
 ALTER TABLE `parents`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `parent_students`
 --
 ALTER TABLE `parent_students`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `payment_bank_accounts`
@@ -1460,13 +1350,13 @@ ALTER TABLE `schools`
 -- AUTO_INCREMENT for table `sections`
 --
 ALTER TABLE `sections`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=32;
 
 --
 -- AUTO_INCREMENT for table `students`
 --
 ALTER TABLE `students`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=25;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `student_attendance`
@@ -1478,7 +1368,7 @@ ALTER TABLE `student_attendance`
 -- AUTO_INCREMENT for table `student_fee_items`
 --
 ALTER TABLE `student_fee_items`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=16;
 
 --
 -- AUTO_INCREMENT for table `student_migrations`
@@ -1508,7 +1398,7 @@ ALTER TABLE `teacher_attendance`
 -- AUTO_INCREMENT for table `teacher_classes`
 --
 ALTER TABLE `teacher_classes`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `transport_routes`
@@ -1520,7 +1410,7 @@ ALTER TABLE `transport_routes`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=31;
+  MODIFY `id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
 
 --
 -- Constraints for dumped tables

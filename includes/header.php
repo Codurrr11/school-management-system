@@ -31,7 +31,7 @@ if (function_exists('init_academic_session')) {
     <link rel="stylesheet" type="text/css" href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/fill/style.css" />
 
     <!-- Custom Style Sheets -->
-    <link href="<?php echo BASE_URL; ?>assets/css/main.css?v=2.0" rel="stylesheet">
+    <link href="<?php echo BASE_URL; ?>assets/css/main.css?v=2.1" rel="stylesheet">
     <link href="<?php echo BASE_URL; ?>assets/css/responsive.css" rel="stylesheet">
 
     <!-- Chart.js CDN -->
