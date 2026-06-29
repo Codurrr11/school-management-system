@@ -1,11 +1,13 @@
 # SchoolERP - Technical Documentation
 
 ## Overview
+
 SchoolERP is a modular, multi-tenant School Management System built with PHP, MySQL, and modern web technologies. The system follows a SaaS architecture with role-based access control, supporting multiple schools within a single platform instance.
 
 ## Architecture Overview
 
 ### 1. System Architecture
+
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    Presentation Layer                        │
@@ -37,6 +39,7 @@ SchoolERP is a modular, multi-tenant School Management System built with PHP, My
 ```
 
 ### 2. Directory Structure
+
 ```
 schoolerp/
 ├── assets/                    # Frontend assets
@@ -90,43 +93,52 @@ schoolerp/
 ## Core Components
 
 ### 1. Authentication & Authorization System
+
 **File:** `config/session.php`, `config/helpers.php`, `login.php`
 
 **Workflow:**
+
 1. **Session Initialization**: Secure session configuration with HTTP-only cookies
 2. **Authentication**: User credentials validation against `users` table
 3. **Authorization**: Role-based access control using `auth_check()` function
 4. **Tenant Isolation**: School-level data segregation via `enforce_tenant()`
 
 **Key Functions:**
+
 - `auth_check($allowed_roles = [])`: Validates user role permissions
 - `enforce_tenant()`: Ensures data access is restricted to user's school
 - `sanitize($input)`: Input sanitization for security
 
 ### 2. Database Layer
+
 **File:** `config/db.php`
 
 **Configuration:**
+
 - PDO-based connection with prepared statements
 - UTF-8 character encoding support
 - Error handling with exceptions
 - Connection pooling optimization
 
 **Security Features:**
+
 - SQL injection prevention via parameterized queries
 - Input validation before database operations
 - Role-based query restrictions
 
 ### 3. Multi-Tenancy Architecture
+
 **Concept:** Single application instance serving multiple schools
 
 **Implementation:**
+
 1. **Tenant Identification**: `school_id` column in all tenant-specific tables
 2. **Data Isolation**: All queries include `WHERE school_id = :school_id`
 3. **Session Management**: User sessions store tenant context
 4. **Resource Separation**: Uploads organized by school ID
 
 **Database Schema Pattern:**
+
 ```sql
 CREATE TABLE tenant_table (
     id BIGINT UNSIGNED PRIMARY KEY,
@@ -139,9 +151,11 @@ CREATE TABLE tenant_table (
 ## Module Architecture
 
 ### 1. Student Management Module
+
 **Location:** `modules/school/students/`
 
 **Components:**
+
 - `index.php`: Student listing with search/filter
 - `view.php`: Detailed student profile view
 - `bulk-edit.php`: Batch student operations
@@ -149,14 +163,17 @@ CREATE TABLE tenant_table (
 - `migrations.php`: Student transfer between classes
 
 **Data Flow:**
+
 ```
 Admission Form → Student Creation → Class Assignment → Fee Structure → Academic Records
 ```
 
 ### 2. Fee Management Module
+
 **Location:** `modules/school/fees/`
 
 **Components:**
+
 - `index.php`: Fee collection interface
 - `fees-structure.php`: Define fee categories
 - `collected-log.php`: Payment history
@@ -164,15 +181,18 @@ Admission Form → Student Creation → Class Assignment → Fee Structure → A
 - `online-payments.php`: Integration with payment gateways
 
 **Business Logic:**
+
 - Dynamic fee structure based on class, category, and transport
 - Installment-based payment tracking
 - Late fee calculation and waiver management
 - Receipt generation and printing
 
 ### 3. Academic Management Module
+
 **Location:** `modules/school/classes/`, `modules/school/sections/`, `modules/school/sessions/`
 
 **Components:**
+
 - Class hierarchy management (Nursery → Class 12)
 - Section creation and student distribution
 - Academic session planning and switching
@@ -181,6 +201,7 @@ Admission Form → Student Creation → Class Assignment → Fee Structure → A
 ## Workflow Patterns
 
 ### 1. User Authentication Flow
+
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │   Login     │────▶│  Session    │────▶│  Role       │────▶│  Tenant     │
@@ -195,6 +216,7 @@ Admission Form → Student Creation → Class Assignment → Fee Structure → A
 ```
 
 ### 2. Student Admission Workflow
+
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                              Admission Process                           │
@@ -206,6 +228,7 @@ Admission Form → Student Creation → Class Assignment → Fee Structure → A
 ```
 
 ### 3. Fee Collection Workflow
+
 ```
 ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
 │  Student    │────▶│  Fee        │────▶│  Payment    │────▶│  Receipt    │
@@ -222,6 +245,7 @@ Admission Form → Student Creation → Class Assignment → Fee Structure → A
 ## Database Schema Highlights
 
 ### Core Tables
+
 1. **`schools`**: Platform tenant information
 2. **`users`**: User accounts with role assignments
 3. **`students`**: Student master records
@@ -232,12 +256,14 @@ Admission Form → Student Creation → Class Assignment → Fee Structure → A
 8. **`academic_sessions`**: Academic year management
 
 ### Financial Tables
+
 1. **`fee_structures`**: Fee category definitions
 2. **`fee_payments`**: Payment transaction records
 3. **`expenses`**: School expenditure tracking
 4. **`bank_accounts`**: Financial account management
 
 ### Relationship Tables
+
 1. **`parent_students`**: Many-to-many parent-student relationships
 2. **`student_classes`**: Student-class enrollment history
 3. **`teacher_classes`**: Teacher-class assignments
@@ -245,22 +271,26 @@ Admission Form → Student Creation → Class Assignment → Fee Structure → A
 ## Security Implementation
 
 ### 1. Input Validation
+
 - All user inputs sanitized using `sanitize()` function
 - Parameterized queries for database operations
 - File upload validation and type checking
 
 ### 2. Session Security
+
 - HTTP-only session cookies
 - Session regeneration on privilege changes
 - Timeout-based session expiration
 - Cross-site request forgery (CSRF) protection
 
 ### 3. Access Control
+
 - Role-based permissions (super_admin, school_admin, teacher, parent, student)
 - Tenant-level data isolation
 - Function-level authorization checks
 
 ### 4. Data Protection
+
 - Password hashing with bcrypt
 - Sensitive data encryption
 - Audit logging for critical operations
@@ -268,11 +298,13 @@ Admission Form → Student Creation → Class Assignment → Fee Structure → A
 ## API & Integration Points
 
 ### 1. Internal APIs
+
 - **Search API**: `search_helper.php` - Unified search across entities
 - **Data Validation**: Duplicate checking endpoints
 - **Report Generation**: PDF/Excel export functionality
 
 ### 2. External Integrations
+
 - **Payment Gateways**: Online fee payment processing
 - **SMS Services**: Notification delivery
 - **Email Services**: Communication with stakeholders
@@ -280,16 +312,19 @@ Admission Form → Student Creation → Class Assignment → Fee Structure → A
 ## Performance Considerations
 
 ### 1. Database Optimization
+
 - Indexed foreign keys for tenant isolation
 - Query optimization with EXPLAIN analysis
 - Connection pooling for high concurrency
 
 ### 2. Caching Strategy
+
 - Session-based caching for user data
 - Configuration caching for frequently accessed settings
 - Report data caching for complex queries
 
 ### 3. Asset Optimization
+
 - Minified CSS and JavaScript
 - Image optimization for uploads
 - CDN integration for static assets
@@ -297,11 +332,13 @@ Admission Form → Student Creation → Class Assignment → Fee Structure → A
 ## Deployment Architecture
 
 ### 1. Development Environment
+
 - XAMPP/WAMP stack
 - Git version control
 - Local database instances
 
 ### 2. Production Considerations
+
 - Load balancing for multi-tenant access
 - Database replication for high availability
 - Backup and disaster recovery procedures
@@ -310,18 +347,21 @@ Admission Form → Student Creation → Class Assignment → Fee Structure → A
 ## Development Guidelines
 
 ### 1. Code Standards
+
 - PSR-12 coding standards
 - Meaningful variable and function names
 - Comprehensive code comments
 - Error handling and logging
 
 ### 2. Module Development
+
 - Follow existing directory structure
 - Implement tenant isolation in all queries
 - Use provided helper functions for security
 - Maintain consistent UI patterns
 
 ### 3. Database Changes
+
 - Use migrations for schema updates
 - Maintain backward compatibility
 - Test with sample data
@@ -330,11 +370,13 @@ Admission Form → Student Creation → Class Assignment → Fee Structure → A
 ## Troubleshooting & Maintenance
 
 ### 1. Common Issues
+
 - **Session Problems**: Check cookie settings and session storage
 - **Database Connection**: Verify credentials and connection limits
 - **Permission Errors**: Review role assignments and tenant context
 
 ### 2. Maintenance Tasks
+
 - Regular database backups
 - Log rotation and analysis
 - Performance monitoring
@@ -343,12 +385,14 @@ Admission Form → Student Creation → Class Assignment → Fee Structure → A
 ## Future Enhancements
 
 ### 1. Planned Features
+
 - Mobile application integration
 - Advanced analytics dashboard
 - AI-powered insights and predictions
 - API-first architecture for third-party integrations
 
 ### 2. Technical Improvements
+
 - Microservices architecture migration
 - Real-time notifications with WebSockets
 - Advanced search with Elasticsearch
@@ -356,6 +400,6 @@ Admission Form → Student Creation → Class Assignment → Fee Structure → A
 
 ---
 
-*Documentation Version: 1.0*  
-*Last Updated: June 27, 2026*  
-*Maintained by: Development Team*
+_Documentation Version: 1.0_
+_Last Updated: June 27, 2026_
+_Maintained by: Development Team_
